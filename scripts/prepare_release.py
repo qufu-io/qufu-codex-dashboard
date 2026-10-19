@@ -11,7 +11,14 @@ parser.add_argument('--version', required=True)
 args = parser.parse_args()
 root = args.folder.resolve()
 files = sorted(p for p in root.iterdir() if p.is_file() and p.suffix in ['.exe', '.deb', '.AppImage', '.sig'])
-expected = {f'Qufu Codex Dashboard_{args.version}{suffix}' for suffix in ['_x64-setup.exe', '_amd64.deb', '_amd64.AppImage']}
+for p in files:
+    if ' ' in p.name:
+        normalized = p.with_name(p.name.replace(' ', '.'))
+        if normalized.exists():
+            raise SystemExit(f'Asset name collision: {normalized.name}')
+        p.rename(normalized)
+files = sorted(p for p in root.iterdir() if p.is_file() and p.suffix in ['.exe', '.deb', '.AppImage', '.sig'])
+expected = {f'Qufu.Codex.Dashboard_{args.version}{suffix}' for suffix in ['_x64-setup.exe', '_amd64.deb', '_amd64.AppImage']}
 allowed = expected | {name + '.sig' for name in expected} | {'QufuCodexDashboard-1.0.exe'}
 extra = [p.name for p in files if p.name not in allowed]
 if extra:
