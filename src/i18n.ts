@@ -1,0 +1,36 @@
+export type Language = 'tr' | 'en';
+const en: Record<string, string> = {
+  'Yerel fiyat ağırlıklı kalibrasyondan tahmini token eşdeğeri; resmi veya sabit token kotası değildir.':'Estimated token equivalent from local price-weighted calibration; not an official or fixed token quota.',
+  'Kayıtlı yerel tüketim':'Recorded local usage','Kalibrasyon':'Calibration','Tipik sapma':'Typical error','Yüzde 90 hata sınırı':'90th percentile error',
+  'OpenAI token cinsinden kota bildirmiyor. Güvenilir kalibrasyon için yeterli yerel veri yok.':'OpenAI does not report a token quota. There is insufficient local data for reliable calibration.',
+
+  'Son istek USD':'Last request USD','Son isteğin tahmini API maliyeti.':'Estimated API cost of the last request.',
+  'Son istek token':'Last request tokens','Son tamamlanan model yanıtının token kullanımı.':'Token usage of the last completed model response.',
+  'Context doluluğu':'Context usage','Context kapasitesi':'Context capacity','Son ölçülen context kullanımı.':'Last measured context usage.',
+  'Hesap aboneliği':'Account subscription','Son bilinen':'Last observed',
+  'Session seç':'Select session','Session listesini aç':'Open session list','Session listesini kapat':'Close session list','Workspace ve session seçimi':'Workspace and session selection',
+  'Her zaman üstte':'Always on top','Ayarlar':'Settings','Sistem tepsisine küçült':'Hide to tray','Yerel Codex verisi okunuyor…':'Reading local Codex usage…',
+  'Session tüketimi':'Session usage','Subagent tüketimi':'Subagent usage','Hesap limitleri':'Account limits','Yenile':'Refresh','Detaylar':'Details','Session’lar':'Sessions',
+  'Manuel seçim':'Manual selection','İzlemek istediğin workspace ve session’ı seç.':'Select the workspace and session to monitor.','Toplam':'Total','Tahmini USD':'Estimated USD',
+  'Subagent’lar':'Subagents','Eksik kayıt var':'Some records are missing','Ana session’dan ayrı':'Separate from main session','5 saatlik hesap limiti':'5-hour account limit','Haftalık hesap limiti':'Weekly account limit',
+  'Yeni limit verisi bekleniyor':'Waiting for updated limits','Veri yok':'No data','Bağlantı bekleniyor · son veri':'Waiting for connection · last update','Yerel veri':'Local data',
+  'Hesap limit bağlantısı bekleniyor':'Connecting to account limits','Auto Follow: manuel':'Auto Follow: manual','Session bulunamadı.':'No sessions found.',
+  'Yalnızca tüketimi doğrulanan ana sohbetler.':'Only main sessions with confirmed usage.','Kapat':'Close','Kompakt görünüm':'Compact view','Tema':'Theme','Koyu':'Dark','Açık':'Light','Şeffaflık':'Transparency','Dil':'Language',
+  'Auto Follow doğrulanmış bir seçim bulamazsa manuel seçimin korunur.':'Auto Follow keeps your manual selection when the selected session cannot be verified.',
+  'API fiyatları':'API prices','Güncelleniyor…':'Updating…','Güncel':'Up to date','Son kaydedilen fiyatlar':'Last saved prices','Başlangıç fiyatları':'Included prices',
+  'USD, API eşdeğeri tahmindir; abonelik faturası değildir.':'USD is an API-equivalent estimate, not your subscription bill.',
+  'Session ayrıntıları':'Session details','Model bilgisi yok':'Model unavailable','Model':'Model','Bilinmiyor':'Unknown','Cache yazma':'Cache writes','Reasoning, Output içinde; Cache, Input içindedir.':'Reasoning is included in Output; Cache is included in Input.',
+  'Bağlı subagent’lar':'Linked subagents','Toplam token':'Total tokens','Guardian incelemesi':'Guardian review','Bağlı subagent kaydı yok.':'No linked subagents.',
+  'Önce bir session seç.':'Select a session first.','Veri bulunamadı':'Unavailable','Codex verisi okunamadı. Yenile ile tekrar dene.':'Could not read Codex usage. Try Refresh.',
+  'Ayar kaydedilemedi. Tekrar dene.':'Could not save settings. Try again.','Çalışıyor':'Working','Tamamlandı':'Completed','Kesildi':'Interrupted','Kayıt okunamıyor':'Record unavailable',
+  'Input içindeki cache; toplamda tekrar eklenmez.':'Cache is included in Input and is not added again.',
+  'Son 60 saniyedeki token tüketimi ÷ 60.':'Tokens consumed in the last 60 seconds ÷ 60.',
+  'Cache dahil girdi':'Input including cache','Reasoning dahil çıktı':'Output including reasoning',
+  'Geçmiş / model verisi yok':'Earlier usage / model unavailable',
+  'Geçmiş toplam mevcut; eski yanıtların model/tarife bilgisi eksik olduğundan tam USD hesaplanamıyor':'Earlier usage is available, but its model or price history is missing; the full USD estimate is unavailable.',
+  'Kümülatif sayaç eksik; belirsiz kayıt eklenmedi':'A cumulative counter is missing; the uncertain record was not added.',
+  'Yanıt token verisi eksik':'Response usage is missing.',
+  'Token sayacı sıfırlandı; son yanıt üzerinden devam edildi':'The usage counter reset; tracking continued from the last response.',
+  'Bozuk JSONL kaydı atlandı':'An unreadable usage record was skipped.'
+};
+export function translate(value:string, language:Language):string { return language==='en' ? en[value]??value : value; }

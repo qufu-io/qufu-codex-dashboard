@@ -1,0 +1,17 @@
+.tools/
+.research/
+node_modules/
+dist/
+src-tauri/target/
+artifacts/private/
+*.log
+test-results/
+playwright-report/
+
+artifacts/
+*.sqlite*
+.env
+.env.*
+!.env.example
+
+src-tauri/gen/

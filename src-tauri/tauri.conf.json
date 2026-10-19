@@ -1,0 +1,71 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Qufu Codex Dashboard",
+  "version": "1.0.0",
+  "identifier": "com.qufu.codexdashboard",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Qufu Codex Dashboard",
+        "width": 300,
+        "height": 380,
+        "minWidth": 300,
+        "minHeight": 200,
+        "decorations": true,
+        "transparent": false,
+        "backgroundColor": "#151719"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "targets": [
+      "nsis",
+      "deb",
+      "appimage"
+    ],
+    "publisher": "Qufu",
+    "homepage": "https://qufu.io",
+    "licenseFile": "../LICENSE",
+    "shortDescription": "Local Codex usage monitor",
+    "longDescription": "Monitor local Codex sessions, tokens, estimated costs and account limits.",
+    "windows": {
+      "nsis": {
+        "languages": [
+          "English",
+          "Turkish"
+        ],
+        "displayLanguageSelector": true,
+        "installerHooks": "installer-hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libayatana-appindicator3-1"
+        ]
+      }
+    },
+    "resources": {
+      "icons/start-menu.ico": "start-menu.ico",
+      "../docs/third-party/LUCIDE-LICENSE": "licenses/LUCIDE-LICENSE"
+    }
+  }
+}
