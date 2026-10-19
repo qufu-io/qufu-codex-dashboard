@@ -29,3 +29,5 @@ Settings checks `https://github.com/qufu-io/qufu-codex-dashboard-releases/releas
 Local Linux packages use the WSL build distribution baseline. Ubuntu 22.04 CI builds provide wider compatibility. Installing a new version on another machine and testing actual replacement/restart remain separate acceptance checks; fixture-based UI tests do not prove real installation.
 
 Windows distribution includes the recommended installer and an optional portable executable. The NSIS installer uses downloadBootstrapper: it checks HKLM/HKCU WebView2 registration, downloads the official Microsoft bootstrapper when missing, runs /silent /install, and aborts on failure. A clean Windows host without WebView2 has not yet been tested.
+
+Published 2026-10-19: public release v1.0.0, private source CI run 39227168273, application source e1b1383fa984f0f68dc0ae61703281df7bbf5889. All platform builds/tests passed. Uploaded digests and anonymous installer/manifest access were verified. The public tag covers only the distribution documentation, not the private application source.
