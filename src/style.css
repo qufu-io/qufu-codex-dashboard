@@ -69,3 +69,5 @@ body:not(.relaxed) footer>span{min-width:0;white-space:nowrap;overflow:hidden;te
 :root[data-theme=light]{--usage-warning:#a34422}
 .usage-warning strong,.usage-warning .context-heading strong{color:var(--usage-warning)}
 .usage-warning .context-track>span,.track>span.danger{background:var(--usage-warning)}
+
+.updates{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}.updates-heading{display:flex;align-items:baseline;justify-content:space-between;color:var(--muted);font-size:10px}.updates-heading h3{margin:0;font-size:10px;font-weight:600}.update-actions{display:flex;align-items:center;gap:12px;margin-top:5px}.update-actions button:first-child{color:var(--accent)}.updates .note{margin:5px 0 0}.update-actions button[aria-disabled=true]{opacity:.5;cursor:wait}

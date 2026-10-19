@@ -83,12 +83,14 @@ test('transparency default and refresh never reapply window geometry',async({pag
  expect(close.height).toBe(await page.locator('#app').evaluate(e=>Math.ceil(e.getBoundingClientRect().height)));
 });
 
-test('only a fresh live account response is labelled Live',async({page})=>{
- await expect(page.locator('#source')).toContainText('Live');
+test('account freshness uses clear update time and stale age labels',async({page})=>{
+ await expect(page.locator('#source')).toHaveText(/^Last updated: \d{2}:\d{2}$/);
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'){v.quota.stale=true;v.quota.at-=180;}return v;};});
  await page.getByRole('button',{name:'Refresh',exact:true}).click();
- await expect(page.locator('#source')).not.toContainText('Live');
- await expect(page.getByRole('progressbar',{name:'5-hour account limit'})).toHaveAttribute('aria-valuenow','42');
+ await expect(page.locator('#source')).toHaveText('Limits may be out of date · 3 min ago');
+ await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#language').selectOption('tr');
+ await expect(page.locator('#source')).toHaveText('Limitler güncel olmayabilir · 3 dk önce');
+ await expect(page.getByRole('progressbar',{name:'5 saatlik hesap limiti'})).toHaveAttribute('aria-valuenow','42');
 });
 
 test('quiet logo, no startup control, English and Turkish persist',async({page})=>{
@@ -256,4 +258,33 @@ test('usage warning thresholds preserve layout and reset after consumption drops
  await expect(page.locator('#contextUsage .track>span')).toHaveCSS('background-color','rgb(163, 68, 34)');
  await page.evaluate(()=>{(window as any).__warningValues={context:25,quota:30};});await page.locator('#refresh').click();
  await expect(page.locator('.usage-warning')).toHaveCount(0);await expect(page.locator('.track>span.danger')).toHaveCount(0);
+});
+
+
+test('updates check current and new releases without login, and install only after a click',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__updateReply={available:false,currentVersion:'1.0.0'};(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{if(cmd==='check_update'){(window as any).__calls.push({cmd,args});return (window as any).__updateReply;}return base(cmd,args);};});
+ await page.locator('#settingsToggle').click();await fitPanel(page);
+ await expect(page.locator('#updateStatus')).toContainText('No GitHub account needed');
+ await page.getByRole('button',{name:'Check for updates',exact:true}).click();
+ await expect(page.locator('#updateStatus')).toHaveText('You are using the latest version.');
+ await page.evaluate(()=>{(window as any).__updateReply={available:true,currentVersion:'1.0.0',version:'1.1.0'};});
+ await page.locator('#checkUpdate').click();await expect(page.locator('#updateStatus')).toHaveText('New version: 1.1.0');
+ expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='install_update').length)).toBe(0);
+ await fitPanel(page);await page.screenshot({path:'artifacts/ui-update-available-1.0.png'});
+ await page.locator('#checkUpdate').click();await expect(page.locator('#updateStatus')).toContainText('Update installed');
+ expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='install_update').length)).toBe(1);
+ await page.locator('#openReleases').click();
+ expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='open_release_page').length)).toBe(1);
+ await page.locator('#language').selectOption('tr');await fitPanel(page);
+ await expect(page.locator('#updatesHeading')).toHaveText('Güncellemeler');
+ await expect(page.locator('#checkUpdate')).toHaveText('Güncellemeleri kontrol et');
+ await page.screenshot({path:'artifacts/ui-update-settings-1.0-tr.png'});
+});
+
+test('update failures stay retryable and never claim the app is current',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{if(cmd==='check_update')throw new Error('offline or no published manifest');return base(cmd,args);};});
+ await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#checkUpdate').click();
+ await expect(page.locator('#updateStatus')).toContainText('Could not check for updates');
+ await expect(page.locator('#checkUpdate')).toBeEnabled();await expect(page.locator('#updateStatus')).not.toContainText('latest version');
+ await fitPanel(page);
 });

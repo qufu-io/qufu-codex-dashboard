@@ -2,6 +2,7 @@ pub mod data;
 pub mod limits;
 pub mod pricing;
 pub mod quota;
+mod updates;
 use serde_json::{json, Value};
 use std::sync::Mutex;
 use tauri::{Manager, State};
@@ -224,6 +225,9 @@ pub fn run() {
             show_main(app);
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
+        .manage(updates::UpdateState::default())
         .manage(Mutex::new(data::Reader::new()))
         .manage(quota::Feed::default())
         .manage(Mutex::new(limits::Estimator::default()))
@@ -234,7 +238,10 @@ pub fn run() {
             save_settings,
             opacity,
             window_preferences,
-            menu_language
+            menu_language,
+            updates::check_update,
+            updates::install_update,
+            updates::open_release_page
         ])
         .setup(|app| {
             app.state::<quota::Feed>().start();

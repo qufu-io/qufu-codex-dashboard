@@ -65,7 +65,21 @@
     },
     "resources": {
       "icons/start-menu.ico": "start-menu.ico",
-      "../docs/third-party/LUCIDE-LICENSE": "licenses/LUCIDE-LICENSE"
+      "../docs/third-party/LUCIDE-LICENSE": "licenses/LUCIDE-LICENSE",
+      "../docs/third-party/NOTICES.html": "licenses/NOTICES.html"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJCNUFFREVCOUJGNUQxMDAKUldRQTBmV2I2KzFhSzljZXRFTU9QR0NjYnpSRHlCNEdCaThsZEtZaTVleGNBb09jRWJSVHpCbnYK",
+      "endpoints": [
+        "https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      },
+      "requireSignedVersion": true
     }
   }
 }

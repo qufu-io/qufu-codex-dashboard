@@ -1,5 +1,14 @@
 export type Language = 'tr' | 'en';
 const en: Record<string, string> = {
+  'Son güncelleme':'Last updated','Limitler güncel olmayabilir':'Limits may be out of date','Az önce':'Just now','Hesap limit verisi bekleniyor':'Waiting for account limit data',
+  'Güncellemeler':'Updates','Güncellemeleri kontrol et':'Check for updates','Kontrol ediliyor…':'Checking…','İndir ve kur':'Download and install','İndiriliyor ve kuruluyor…':'Downloading and installing…',
+  'GitHub sürümleri kontrol ediliyor.':'Checking GitHub releases.','İmza doğrulanacak; kurulum sırasında uygulama yeniden başlayabilir.':'The signature will be verified; the app may restart during installation.',
+  'Yeni sürüm':'New version','En güncel sürümü kullanıyorsun.':'You are using the latest version.','GitHub hesabı gerektirmez. Yalnızca yayınlanmış sürümler kontrol edilir.':'No GitHub account needed. Only published releases are checked.',
+  'Güncelleme kuruldu. Uygulamayı yeniden açabilirsin.':'Update installed. You can reopen the app.',
+  'Güncelleme kurulamadı. GitHub üzerinden indirebilir veya tekrar kontrol edebilirsin.':'Could not install the update. Download from GitHub or check again.',
+  'Güncelleme kontrol edilemedi. İnternet bağlantısını ve GitHub sürüm sayfasını kontrol et.':'Could not check for updates. Check your connection and the GitHub releases page.',
+  'GitHub sayfası açılamadı. Daha sonra tekrar dene.':'Could not open GitHub. Try again later.',
+
   'Yerel fiyat ağırlıklı kalibrasyondan tahmini token eşdeğeri; resmi veya sabit token kotası değildir.':'Estimated token equivalent from local price-weighted calibration; not an official or fixed token quota.',
   'Kayıtlı yerel tüketim':'Recorded local usage','Kalibrasyon':'Calibration','Tipik sapma':'Typical error','Yüzde 90 hata sınırı':'90th percentile error',
   'OpenAI token cinsinden kota bildirmiyor. Güvenilir kalibrasyon için yeterli yerel veri yok.':'OpenAI does not report a token quota. There is insufficient local data for reliable calibration.',

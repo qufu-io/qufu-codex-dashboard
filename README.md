@@ -4,7 +4,7 @@ A compact desktop companion for tracking Codex sessions, token usage and account
 
 **Version 1.0 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
 
-[Download 1.0](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.0) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
+[Download 1.0](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.0) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 
 <p align="center">
   <img src="docs/images/dashboard-1.0.png" width="300" alt="Qufu Codex Dashboard 1.0 showing session tokens, last request cost, context usage and account limits">
@@ -27,9 +27,9 @@ Qufu Codex Dashboard, Codex kullanımını küçük bir masaüstü penceresinden
 
 ### İndirme ve kurulum
 
-Bu depo **private**. İndirmek için depo sahibinin davet ettiği GitHub hesabınla giriş yapmalı ve daveti kabul etmelisin. Sadece bağlantıya sahip olmak erişim sağlamaz.
+Uygulama **ücretsizdir ve kapalı kaynaklıdır**. Public dağıtım deposundan GitHub hesabı veya davet gerektirmeden indirebilirsin. Kaynak kodu bu depoda paylaşılmaz.
 
-1. [1.0 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.0).
+1. [1.0 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.0).
 2. **Assets** bölümünü genişlet.
 3. İşletim sistemine uygun paketi indir:
 
@@ -40,13 +40,15 @@ Bu depo **private**. İndirmek için depo sahibinin davet ettiği GitHub hesabı
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./indirilen-dosya.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x indirilen-dosya.AppImage` ardından dosyayı çalıştır. |
 
-**Gereksinimler:** Yerel session verisi oluşturan Codex kurulumu. Canlı hesap limitleri için oturum açılmış Codex CLI (`codex` komutu PATH üzerinde) gerekir. Windows kurulumu, eksikse Microsoft Edge WebView2'yi edinebilir. Linux'ta WebKitGTK 4.1 ve çalışan bir masaüstü oturumu gerekir; GNOME'da tray için AppIndicator eklentisi gerekebilir. Wayland, pencere konumunu ve her zaman üstte davranışını sınırlandırabilir.
+**Gereksinimler:** Yerel session verisi oluşturan Codex kurulumu. Canlı hesap limitleri için oturum açılmış Codex CLI (`codex` komutu PATH üzerinde) gerekir. Windows kurucusu WebView2'yi kontrol eder; eksikse internetten indirip otomatik kurar. WebView2 kurulumu başarısız olursa uygulama kurulumu durur. Linux'ta WebKitGTK 4.1 ve çalışan bir masaüstü oturumu gerekir; GNOME'da tray için AppIndicator eklentisi gerekebilir. Wayland, pencere konumunu ve her zaman üstte davranışını sınırlandırabilir.
 
 **Güncelleme:** Eski uygulamayı tray menüsündeki **Quit / Çıkış** ile kapat, ardından yeni kurulumu çalıştır. Pencerenin X düğmesi uygulamayı tray'e gizler.
 
 ### Kullanım
 
 Üstteki workspace/session adına tıklayıp takip edeceğin session'ı seç. Detaylar paneli model ve subagent dökümünü gösterir. Ayarlardan dil, tema, şeffaflık ve her zaman üstte seçeneklerini değiştirebilirsin.
+
+Alt satır son limit güncelleme saatini gösterir; eski veride ne kadar süre geçtiği belirtilir.
 
 Varsayılanlar: İngilizce, %33 şeffaflık, 300 piksel genişliğinde kompakt görünüm. Yükseklik içeriğe uyar; pencere ve sonraki tercihler hatırlanır. Context %80'i, hesap limitleri %90'ı aşınca ilgili bar ve yüzde uyarı rengine döner.
 
@@ -62,9 +64,11 @@ Varsayılanlar: İngilizce, %33 şeffaflık, 300 piksel genişliğinde kompakt g
 
 ### Gizlilik ve paylaşım
 
-Uygulama konuşmaları ve kullanım kayıtlarını bir dashboard sunucusuna yüklemez; kimlik doğrulama token dosyalarını okumaz. Ağ erişimi resmi fiyat kontrolü ve kurulu Codex'in hesap limit okuyucusu içindir.
+Uygulama konuşmaları ve kullanım kayıtlarını bir dashboard sunucusuna yüklemez; kimlik doğrulama token dosyalarını okumaz. Ağ erişimi resmi fiyat kontrolü, kurulu Codex'in hesap limit okuyucusu ve GitHub güncelleme kontrolü/indirmesi içindir.
 
-Depo sahibi **Settings → Collaborators → Add people** yolundan davet gönderebilir. Davet edilen kişi kabul ettikten sonra Releases paketlerini indirebilir. Kişisel hesaba ait private depolarda collaborator erişimi kaynak koduna yazma yetkisini de içerir; salt okunur roller için organizasyon deposu gerekir. [GitHub erişim belgesi](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository).
+Ayarlar → **Güncellemeleri kontrol et** ile yeni sürümü sorgulayabilirsin. Yeni sürüm bulunduğunda **İndir ve kur** düğmesine tıklaman gerekir; kurulum kendiliğinden başlamaz. Paket imzası ve imzalanmış sürüm numarası doğrulanır. Windows kurulum sırasında kapanabilir; Linux'ta uygulama yeniden başlatılır. GitHub düğmesiyle tüm sürümleri tarayıcıda açabilirsin. İnternet veya yayın manifesti erişilemezse kontrol başarısız olarak gösterilir; uygulama güncelmiş gibi davranmaz.
+
+Uygulama ücretsiz kullanılabilir; kaynak kodu, değiştirme, yeniden dağıtma veya satış hakkı verilmez. Ayrıntılar için [kullanım lisansını](LICENSE) incele.
 
 ## English
 
@@ -83,9 +87,9 @@ Qufu Codex Dashboard is a compact Tauri 2 desktop monitor for local Codex usage 
 
 ### Download and install
 
-This repository is **private**. Sign in using an invited GitHub account and accept the invitation first. A release URL alone does not grant access.
+The application is **free to use and closed-source**. Downloads are public and do not require a GitHub account or invitation. Application source code is not distributed in the downloads repository.
 
-Open [Release 1.0 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.0) and select your package:
+Open [Release 1.0 → Assets](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.0) and select your package:
 
 | Platform | Package | Installation |
 | --- | --- | --- |
@@ -94,11 +98,13 @@ Open [Release 1.0 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/re
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./downloaded-file.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x downloaded-file.AppImage`, then run it. |
 
-Local Codex session records are required. Live account limits require a signed-in Codex CLI available as `codex` on PATH. The Windows installer can obtain Microsoft Edge WebView2 when missing. Linux requires WebKitGTK 4.1 and a graphical session; GNOME may need an AppIndicator extension for the tray. Wayland can restrict window positioning and always-on-top behavior.
+Local Codex session records are required. Live account limits require a signed-in Codex CLI available as `codex` on PATH. The Windows installer detects WebView2 and automatically downloads/installs it when missing; this requires internet access. Installation stops if the runtime cannot be installed. Linux requires WebKitGTK 4.1 and a graphical session; GNOME may need an AppIndicator extension for the tray. Wayland can restrict window positioning and always-on-top behavior.
 
 Before updating, use **Quit** in the tray menu to close the running app. Closing the window only hides it to the tray.
 
 ### Use and accuracy
+
+The footer shows the last limit-update time and the age of stale data.
 
 Select a workspace/session from the header. Open Details for model and subagent usage, or Settings for appearance and language. Defaults are English, 33% transparency and a 300 px compact window that fits its content. Preferences persist. Context warns above %80; account limits warn above %90.
 
@@ -108,11 +114,13 @@ Unknown values remain unavailable. USD is an API-equivalent estimate, not a subs
 
 Account percentages come from the installed Codex `account/rateLimits/read` interface. OpenAI does not report a fixed token allowance. Fractions marked `≈` are estimated token equivalents from local price-weighted calibration, not official quotas or measured account-wide spending. Insufficient or unstable calibration remains unavailable; other devices and cloud use can affect accuracy. Cloud/ChatGPT conversations without local usage records are not listed. Auto Follow keeps manual selection when Desktop selection cannot be verified.
 
-The app does not upload conversations or usage logs to a dashboard server and does not read authentication token files. Network activity is limited to public pricing requests and the installed Codex account reader.
+The app does not upload conversations or usage logs to a dashboard server and does not read authentication token files. Network activity is limited to public pricing requests, the installed Codex account reader, and GitHub update checks/downloads.
 
-### Sharing private downloads
+### Updates and license
 
-The owner can invite accounts through **Settings → Collaborators → Add people**. Recipients accept the invitation, sign in and download from Releases. Personal-repository collaborators also have write access; organization repositories support read-only roles. [GitHub permission documentation](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository).
+Open Settings → **Check for updates**. When a newer release is found, click **Download and install** to approve installation. The package signature and signed version are verified first. Windows may close during installation; Linux restarts the app afterward. The GitHub button opens the releases page. A failed network or missing release manifest is reported as a failed check, never as proof that the app is current.
+
+Use is free. Application source, modification, redistribution and resale rights are not granted. See the [freeware license](LICENSE). Third-party components retain their own licenses.
 
 ## Development / Geliştirme
 
@@ -127,7 +135,7 @@ npm test
 
 The UI tests use Microsoft Edge. Windows builds require Visual Studio C++ Build Tools and WebView2; run `powershell -File scripts/build.ps1`. Linux builds require GTK3, WebKitGTK 4.1, AppIndicator, librsvg, a C/C++ toolchain and patchelf; run `scripts/build-linux.sh` from Linux/WSL. The script uses an isolated build cache.
 
-GitHub Actions builds Windows and Ubuntu 22.04 packages into a draft release. Both platform jobs must pass before publication. Local Codex data, diagnostics, build caches and test artifacts are excluded from Git. See [release process](docs/RELEASE.md).
+The private source workflow builds Windows and Ubuntu 22.04 signed packages as artifacts. Both platform jobs must pass before the owner publishes packages to the separate public distribution repository. Local Codex data, diagnostics, signing keys, build caches and test artifacts are excluded from source uploads. See [release process](docs/RELEASE.md).
 
 ## Author / Yazar
 
@@ -135,6 +143,6 @@ GitHub Actions builds Windows and Ubuntu 22.04 packages into a draft release. Bo
 
 [qufu.io](https://qufu.io)
 
-Copyright © 2026 alper@qufu.io. Source code is provided under the [MIT License](LICENSE). Private repository visibility and the source license are separate choices.
+Copyright © 2026 alper@qufu.io. All rights reserved. The application is free to use under the [freeware license](LICENSE); its source code is not publicly distributed.
 
 The in-app Qufu logo is supplied by the author. System icons use the approved Lucide Square Activity adaptation; see the [ISC license and attribution](docs/third-party/LUCIDE-LICENSE).
