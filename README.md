@@ -137,6 +137,13 @@ The UI tests use Microsoft Edge. Windows builds require Visual Studio C++ Build 
 
 The private source workflow builds Windows and Ubuntu 22.04 signed packages as artifacts. Both platform jobs must pass before the owner publishes packages to the separate public distribution repository. Local Codex data, diagnostics, signing keys, build caches and test artifacts are excluded from source uploads. See [release process](docs/RELEASE.md).
 
+## Contributors / Katkıda bulunanlar
+
+| Contributor / Katkıda bulunan | Role / Rol |
+| --- | --- |
+| [qufu-io](https://github.com/qufu-io) — [alper@qufu.io](mailto:alper@qufu.io) | Project owner and developer / Proje sahibi ve geliştirici |
+| [OpenAI Codex](https://openai.com/codex/) | AI development assistant / Yapay zekâ geliştirme asistanı |
+
 ## Author / Yazar
 
 **[alper@qufu.io](mailto:alper@qufu.io)**
