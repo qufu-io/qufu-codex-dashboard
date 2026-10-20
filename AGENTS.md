@@ -9,3 +9,5 @@ For genuine Codex-assisted commits in this project, preserve the configured huma
 Co-authored-by: Codex <codex@openai.com>
 
 Do not create empty commits or rewrite published history just to add attribution. Attribution does not authorize commit, push, or release operations by itself.
+
+Use the owner's repository-local Git author email `32743516+qufu-io@users.noreply.github.com` so GitHub associates genuine commits with qufu-io. Keep the application author, public contact and copyright as alper@qufu.io.
