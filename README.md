@@ -142,7 +142,7 @@ The private source workflow builds Windows and Ubuntu 22.04 signed packages as a
 | Contributor / Katkıda bulunan | Role / Rol |
 | --- | --- |
 | [qufu-io](https://github.com/qufu-io) — [alper@qufu.io](mailto:alper@qufu.io) | Project owner and developer / Proje sahibi ve geliştirici |
-| [OpenAI Codex](https://openai.com/codex/) | AI development assistant / Yapay zekâ geliştirme asistanı |
+| [OpenAI Codex](https://github.com/codex) | AI development assistant / Yapay zekâ geliştirme asistanı |
 
 ## Author / Yazar
 
