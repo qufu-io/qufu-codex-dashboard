@@ -10,19 +10,19 @@ Windows and Linux native Tauri 2 host; local WebView UI, no browser or web serve
 User preference: Tauri 2. Rust data reader and plain TypeScript/CSS UI.
 
 ## Users
-Codex Desktop user monitoring sessions while working on Windows.
+Codex Desktop users monitoring local sessions on Windows and Linux.
 
 ## Product Purpose
 Compact, accurate per-session usage with a session picker that mirrors local Codex Desktop threads.
 
 ## Capabilities and Constraints
-Manual selection by default; optional safe Auto Follow; main and descendant usage separated; no invented missing values; cached input and reasoning are subsets. Local read-only SQLite and rollout access. Account limit snapshots separate from session metrics. Tray, topmost, remembered geometry and opacity. Turkish/English. Refresh official prices on startup with last-good cache. User approved 300 px wide compact, content-fitted height with expanding session/detail panels.
+Manual selection by default; optional safe Auto Follow; main and descendant usage separated; no invented missing values; cached input and reasoning are subsets. Local read-only SQLite and rollout access. Account limit snapshots separate from session metrics. Tray, topmost, remembered geometry and opacity. Turkish/English. Refresh official prices on startup with last-good cache. A 300 px wide compact, content-fitted window with expanding session/detail panels.
 
 ## Brand Commitments
-Qufu name, minimal dark theme. User-provided transparent Qufu logo is included. The sidebar reference screenshot has not been supplied.
+Qufu name, minimal dark theme. User-provided transparent Qufu logo is included. Published product screenshots use example workspace/session names.
 
 ## Evidence on Hand
-Local Codex metadata and logs, upstream source references. No screenshot/logo fixture available.
+Read-only local metadata and logs were used during development; only synthetic fixtures and the approved example product screenshot are versioned.
 
 ## Product Principles
 Correct discovery before decoration. Unknown is not zero. No data mutation or remote transcript upload. Running session is not selected session.

@@ -20,4 +20,4 @@ Eski/kompakt edilmiş rollout’un ilk response kaydı önceki toplamı taşıya
 
 Desktop kalıcı durumunda gerçekten seçili session’ı doğrulayan bir alan bulunamadı. Beta, çalışma/son güncelleme zamanını seçim gibi kullanmaz ve manuel seçimi korur. Cloud ve ChatGPT sohbetlerinin yerel token dökümü olmadığı için yerel Codex ana sohbet listesi hedeflenir.
 
-Kullanıcının söz ettiği screenshot/logo henüz eklenmedi. Sol menü için bağımsız `list_threads` çıktısı karşılaştırma referansı olarak alındı; görsel eşleşme testi yerine geçtiği iddia edilmez.
+İlk keşif doğrulamasında bağımsız `list_threads` çıktısı karşılaştırma referansı olarak kullanıldı; bunun gerçek sol menü görsel eşleşme testi olduğu iddia edilmez. Sonradan eklenen onaylı ürün ekran görüntüsü `docs/images/dashboard-1.0.png` altında bulunur; özel yerel doğrulama verileri depoya dahil değildir.

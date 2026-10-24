@@ -2,9 +2,9 @@
 
 A compact desktop companion for tracking Codex sessions, token usage and account limits.
 
-**Version 1.0 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
+**Open source · MIT · Version 1.0 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
 
-[Download 1.0](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.0) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
+[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.0) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 
 <p align="center">
   <img src="docs/images/dashboard-1.0.png" width="300" alt="Qufu Codex Dashboard 1.0 showing session tokens, last request cost, context usage and account limits">
@@ -27,7 +27,7 @@ Qufu Codex Dashboard, Codex kullanımını küçük bir masaüstü penceresinden
 
 ### İndirme ve kurulum
 
-Uygulama **ücretsizdir ve kapalı kaynaklıdır**. Public dağıtım deposundan GitHub hesabı veya davet gerektirmeden indirebilirsin. Kaynak kodu bu depoda paylaşılmaz.
+Uygulama **ücretsiz ve MIT lisanslı açık kaynaklıdır**. [Kaynak kodunu](https://github.com/qufu-io/qufu-codex-dashboard) inceleyebilir, değiştirebilir ve lisans koşullarıyla paylaşabilirsin. İndirme için GitHub hesabı gerekmez.
 
 1. [1.0 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.0).
 2. **Assets** bölümünü genişlet.
@@ -68,7 +68,7 @@ Uygulama konuşmaları ve kullanım kayıtlarını bir dashboard sunucusuna yük
 
 Ayarlar → **Güncellemeleri kontrol et** ile yeni sürümü sorgulayabilirsin. Yeni sürüm bulunduğunda **İndir ve kur** düğmesine tıklaman gerekir; kurulum kendiliğinden başlamaz. Paket imzası ve imzalanmış sürüm numarası doğrulanır. Windows kurulum sırasında kapanabilir; Linux'ta uygulama yeniden başlatılır. GitHub düğmesiyle tüm sürümleri tarayıcıda açabilirsin. İnternet veya yayın manifesti erişilemezse kontrol başarısız olarak gösterilir; uygulama güncelmiş gibi davranmaz.
 
-Uygulama ücretsiz kullanılabilir; kaynak kodu, değiştirme, yeniden dağıtma veya satış hakkı verilmez. Ayrıntılar için [kullanım lisansını](LICENSE) incele.
+Kaynak kodu ve projenin özgün varlıkları [MIT lisansı](LICENSE) altındadır. Üçüncü taraf bileşenlerin kendi lisansları korunur. [Lisans geçişi](docs/LICENSING.md), eski 1.0 kurulum paketlerinde görünen freeware metnini de açıklar.
 
 ## English
 
@@ -87,7 +87,7 @@ Qufu Codex Dashboard is a compact Tauri 2 desktop monitor for local Codex usage 
 
 ### Download and install
 
-The application is **free to use and closed-source**. Downloads are public and do not require a GitHub account or invitation. Application source code is not distributed in the downloads repository.
+The application is **free and open source under MIT**. [Browse, modify and contribute to the source](https://github.com/qufu-io/qufu-codex-dashboard). Downloads are public and require no GitHub account.
 
 Open [Release 1.0 → Assets](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.0) and select your package:
 
@@ -120,22 +120,29 @@ The app does not upload conversations or usage logs to a dashboard server and do
 
 Open Settings → **Check for updates**. When a newer release is found, click **Download and install** to approve installation. The package signature and signed version are verified first. Windows may close during installation; Linux restarts the app afterward. The GitHub button opens the releases page. A failed network or missing release manifest is reported as a failed check, never as proof that the app is current.
 
-Use is free. Application source, modification, redistribution and resale rights are not granted. See the [freeware license](LICENSE). Third-party components retain their own licenses.
+The source and original project assets are available under the [MIT license](LICENSE). Third-party components retain their own licenses. See the [license transition](docs/LICENSING.md) for the legacy freeware wording still embedded in previously published 1.0 installers.
 
 ## Development / Geliştirme
 
-Node.js 22+, Rust stable and platform build dependencies are required.
+See [Windows/Linux setup, tests and unsigned local builds](docs/DEVELOPMENT.md). / Windows/Linux kurulumu, testler ve imzasız yerel derleme için [geliştirme rehberini](docs/DEVELOPMENT.md) oku.
 
 ```sh
 npm ci
+npx playwright install chromium
 npm run build
 cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
 npm test
+npm run tauri -- dev
 ```
 
-The UI tests use Microsoft Edge. Windows builds require Visual Studio C++ Build Tools and WebView2; run `powershell -File scripts/build.ps1`. Linux builds require GTK3, WebKitGTK 4.1, AppIndicator, librsvg, a C/C++ toolchain and patchelf; run `scripts/build-linux.sh` from Linux/WSL. The script uses an isolated build cache.
+CI runs frontend, Rust and synthetic UI checks on Windows and Ubuntu. Pull requests do not receive signing secrets. Official signed installers and updates remain in the [downloads repository](https://github.com/qufu-io/qufu-codex-dashboard-releases). See [release process](docs/RELEASE.md).
 
-The private source workflow builds Windows and Ubuntu 22.04 signed packages as artifacts. Both platform jobs must pass before the owner publishes packages to the separate public distribution repository. Local Codex data, diagnostics, signing keys, build caches and test artifacts are excluded from source uploads. See [release process](docs/RELEASE.md).
+## Community / Topluluk
+
+- [Contribution guide / Katkı rehberi](CONTRIBUTING.md)
+- [Code of Conduct / Davranış kuralları](CODE_OF_CONDUCT.md)
+- [Security policy / Güvenlik politikası](SECURITY.md)
+- [Bug reports and feature requests / Hata ve özellik önerileri](https://github.com/qufu-io/qufu-codex-dashboard/issues/new/choose)
 
 ## Contributors / Katkıda bulunanlar
 
@@ -152,6 +159,6 @@ Development commits credit [qufu-io](https://github.com/qufu-io) as author and [
 
 [qufu.io](https://qufu.io)
 
-Copyright © 2026 alper@qufu.io. All rights reserved. The application is free to use under the [freeware license](LICENSE); its source code is not publicly distributed.
+Copyright © 2026 alper@qufu.io. Licensed under [MIT](LICENSE). This is an independent community project, not an official OpenAI product or endorsement.
 
 The in-app Qufu logo is supplied by the author. System icons use the approved Lucide Square Activity adaptation; see the [ISC license and attribution](docs/third-party/LUCIDE-LICENSE).

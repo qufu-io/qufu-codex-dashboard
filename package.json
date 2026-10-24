@@ -19,5 +19,13 @@
     "vite": "^7.1.0"
   },
   "author": "alper@qufu.io",
-  "license": "UNLICENSED"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qufu-io/qufu-codex-dashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qufu-io/qufu-codex-dashboard/issues"
+  },
+  "homepage": "https://qufu.io"
 }

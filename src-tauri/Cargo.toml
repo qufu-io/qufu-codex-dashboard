@@ -2,7 +2,8 @@
 name = "qufu-codex-dashboard"
 version = "1.0.0"
 authors = ["alper@qufu.io"]
-license-file = "../LICENSE"
+license = "MIT"
+repository = "https://github.com/qufu-io/qufu-codex-dashboard"
 homepage = "https://qufu.io"
 edition = "2021"
 
