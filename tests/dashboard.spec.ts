@@ -228,8 +228,8 @@ test('approved presentation uses prefix percentages and suffix dollars in both l
 });
 
 test('quota amounts are labeled estimates and missing calibration stays unknown',async({page})=>{
- await expect(page.locator('#five .quota-amount')).toHaveText('≈(42M/100M Token)');
- await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/not an official or fixed token quota/);
+ await expect(page.locator('#five .quota-amount')).toHaveText('≈ 42M / 100M Token');
+ await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/not an official token quota/);
  await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/Typical error: %20.0/);
  await expect(page.locator('#week .quota-amount')).toHaveText('(—/— Token)');
  await expect(page.locator('#week .limit-top strong')).toHaveText('%68');
@@ -264,14 +264,15 @@ test('usage warning thresholds preserve layout and reset after consumption drops
 test('updates check current and new releases without login, and install only after a click',async({page})=>{
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__updateReply={available:false,currentVersion:'1.0.0'};(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{if(cmd==='check_update'){(window as any).__calls.push({cmd,args});return (window as any).__updateReply;}return base(cmd,args);};});
  await page.locator('#settingsToggle').click();await fitPanel(page);
- await expect(page.locator('#updateStatus')).toContainText('No GitHub account needed');
+ await expect(page.locator('#updateStatus')).toHaveText('');
+ await expect(page.locator('#updateStatus')).toHaveAttribute('title',/No GitHub account needed/);
  await page.getByRole('button',{name:'Check for updates',exact:true}).click();
- await expect(page.locator('#updateStatus')).toHaveText('You are using the latest version.');
+ await expect(page.locator('#updateStatus')).toHaveText('Up to date');
  await page.evaluate(()=>{(window as any).__updateReply={available:true,currentVersion:'1.0.0',version:'1.1.0'};});
  await page.locator('#checkUpdate').click();await expect(page.locator('#updateStatus')).toHaveText('New version: 1.1.0');
  expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='install_update').length)).toBe(0);
  await fitPanel(page);await page.screenshot({path:'artifacts/ui-update-available-1.0.png'});
- await page.locator('#checkUpdate').click();await expect(page.locator('#updateStatus')).toContainText('Update installed');
+ await page.locator('#checkUpdate').click();await expect(page.locator('#updateDetails')).toContainText('Update installed');
  expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='install_update').length)).toBe(1);
  await page.locator('#openReleases').click();
  expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='open_release_page').length)).toBe(1);
@@ -284,7 +285,41 @@ test('updates check current and new releases without login, and install only aft
 test('update failures stay retryable and never claim the app is current',async({page})=>{
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{if(cmd==='check_update')throw new Error('offline or no published manifest');return base(cmd,args);};});
  await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#checkUpdate').click();
- await expect(page.locator('#updateStatus')).toContainText('Could not check for updates');
+ await expect(page.locator('#updateDetails')).toContainText('Could not check for updates');
  await expect(page.locator('#checkUpdate')).toBeEnabled();await expect(page.locator('#updateStatus')).not.toContainText('latest version');
  await fitPanel(page);
+});
+
+
+test('compact settings saves height and keeps controls aligned at 300 and 371 pixels',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>cmd==='check_update'?{available:false,currentVersion:'1.0.0'}:base(cmd,args);});
+ await page.locator('#settingsToggle').click();await fitPanel(page);
+ await expect(page.locator('#panel')).not.toContainText('Auto Follow keeps your manual selection');
+ await expect(page.locator('#panel')).toContainText('API prices');await expect(page.locator('#panel')).toContainText('not your subscription bill');
+ const before=JSON.parse(await (await import('node:fs/promises')).readFile('artifacts/private/settings-before.json','utf8').catch(()=>'{"panel":535}'));
+ await page.locator('#checkUpdate').click();await expect(page.locator('#updateStatus')).toHaveText('Up to date');
+ const height=await page.locator('#panel').evaluate(e=>e.getBoundingClientRect().height);expect(height).toBeLessThan(400);
+ await (await import('node:fs/promises')).writeFile('artifacts/settings-size-comparison.json',JSON.stringify({before:before.panel,after:height,saved:before.panel-height}));
+ for(const width of [300,371]){
+  await page.setViewportSize({width,height:1200});
+  for(const language of ['en','tr']){await page.locator('#language').selectOption(language);for(const theme of ['dark','light']){
+   await page.locator('#theme').selectOption(theme);
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+   const layout=await page.evaluate(()=>{const box=(id:string)=>document.querySelector(id)!.getBoundingClientRect();return {check:box('#checkUpdate').y,github:box('#openReleases').y,status:box('#updateStatus').y,author:box('.author').bottom,bottom:box('#panel').bottom};});
+   expect(Math.abs(layout.check-layout.github)).toBeLessThan(1);expect(Math.abs(layout.check-layout.status)).toBeLessThan(6);expect(layout.author).toBeLessThanOrEqual(layout.bottom);
+   await expect(page.locator('.author')).toContainText('alper@qufu.io');
+  }}
+  await page.locator('#app').screenshot({path:`artifacts/ui-settings-compact-${width}.png`});
+ }
+});
+test('USD fallback and incomplete agents remain visible as approximate partial data',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'&&v.detail){v.detail.usdApproximate=true;v.detail.usdPartial=true;v.detail.lastUsdApproximate=true;v.detail.children=[{id:'a',title:'A',usage:{total:200},usd:0.001,status:'Working'},{id:'b',title:'B',usage:{total:300},usd:0.002,status:'Working'},{id:'c',title:'C',usage:null,usd:null,status:'Unavailable'}];v.detail.childUsage={total:500};v.detail.childUsd=0.003;v.detail.childUsdPartial=true;v.detail.childrenComplete=false;}return v;};});
+ await page.locator('#sessionTitle').click();await page.locator('[data-id="test-main"]').click();
+ await expect(page.locator('.estimated-price strong')).toHaveText('≈ 0.0025 $');await expect(page.locator('.last-price strong')).toHaveText('≈ 0.0006 $');
+ await page.locator('#detailsToggle').click();await fitPanel(page);await expect(page.locator('#agents')).toContainText('500');await expect(page.locator('#agents .partial-label')).toHaveText('Partial');
+ await expect(page.locator('#panel table').last()).toContainText('Unavailable');await expect(page.locator('#panel table').last()).toContainText('200');await expect(page.locator('#panel table').last()).toContainText('300');
+});
+test('unvalidated capacity never invents errors and retains measured local tokens',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.quota.value.primary.token_estimate={used:null,capacity:null,localTokens:40000,approximate:true,intervals:0,resets:0,medianErrorPercent:null,p90ErrorPercent:null,reliability:'insufficient'};return v;};});
+ await page.locator('#refresh').click();await expect(page.locator('#five .quota-amount')).toHaveText('40K / — Token');await expect(page.locator('#five .quota-amount')).not.toHaveAttribute('title',/Typical error/);await expect(page.locator('#five .limit-top strong')).toHaveText('%42');
 });

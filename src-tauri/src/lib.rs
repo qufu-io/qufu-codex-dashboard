@@ -213,9 +213,12 @@ pub fn diagnose() -> Result<Value, String> {
         details.push(r.snapshot(Some(&id))?["detail"].clone());
     }
     v["details"] = json!(details);
-    let mut estimator = limits::Estimator::default();
+    let mut estimator = std::env::var_os("QUFU_DIAGNOSTICS_DIR")
+        .map(|p| limits::Estimator::new(p.into()))
+        .unwrap_or_default();
     let estimates = estimator.update_blocking(&v["quota"]);
     v["calibrationDiagnostics"] = estimator.diagnostics(&v["quota"]);
+    v["pricing"] = pricing::info();
     attach_estimates(&mut v, &estimates);
     Ok(v)
 }
@@ -230,7 +233,6 @@ pub fn run() {
         .manage(updates::UpdateState::default())
         .manage(Mutex::new(data::Reader::new()))
         .manage(quota::Feed::default())
-        .manage(Mutex::new(limits::Estimator::default()))
         .manage(Appearance::default())
         .invoke_handler(tauri::generate_handler![
             snapshot,
@@ -244,6 +246,9 @@ pub fn run() {
             updates::open_release_page
         ])
         .setup(|app| {
+            app.manage(Mutex::new(limits::Estimator::new(
+                app.path().app_data_dir()?,
+            )));
             app.state::<quota::Feed>().start();
             pricing::start(app.path().app_config_dir()?);
             use tauri::tray::TrayIconBuilder;

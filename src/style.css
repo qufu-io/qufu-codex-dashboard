@@ -71,3 +71,19 @@ body:not(.relaxed) footer>span{min-width:0;white-space:nowrap;overflow:hidden;te
 .usage-warning .context-track>span,.track>span.danger{background:var(--usage-warning)}
 
 .updates{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}.updates-heading{display:flex;align-items:baseline;justify-content:space-between;color:var(--muted);font-size:10px}.updates-heading h3{margin:0;font-size:10px;font-weight:600}.update-actions{display:flex;align-items:center;gap:12px;margin-top:5px}.update-actions button:first-child{color:var(--accent)}.updates .note{margin:5px 0 0}.update-actions button[aria-disabled=true]{opacity:.5;cursor:wait}
+
+#panel[data-kind^="settings"]{padding-bottom:10px}
+#panel[data-kind^="settings"] .panel-title{margin-top:8px}
+.settings-grid{gap:7px;padding:8px 8px 8px 0}
+.settings-toggles{display:grid;gap:0}
+.settings-grid label{min-height:24px}
+.settings-grid select{padding-top:2px;padding-bottom:2px;min-height:24px}
+.settings-grid input[type="range"]{margin-left:auto;min-width:0}
+#panel[data-kind^="settings"]>.note{margin:4px 0;line-height:1.5}
+.updates{padding-top:6px;margin-top:8px}
+.update-actions{gap:6px;margin-top:3px;flex-wrap:wrap}
+.update-actions button{white-space:nowrap;flex-shrink:0}
+#updateStatus{font-size:9px;color:var(--muted);margin-left:auto;min-width:0;overflow-wrap:anywhere}
+.updates .note{margin-top:4px;line-height:1.5}
+.author{margin-top:8px}
+.partial-label{font-size:9px;color:var(--muted)}

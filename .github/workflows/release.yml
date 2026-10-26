@@ -34,7 +34,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri -- build --bundles ${{ matrix.bundles }}
       - if: runner.os == 'Windows'
-        run: Copy-Item src-tauri/target/release/qufu-codex-dashboard.exe src-tauri/target/release/bundle/nsis/QufuCodexDashboard-1.0.exe
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          Copy-Item src-tauri/target/release/qufu-codex-dashboard.exe "src-tauri/target/release/bundle/nsis/QufuCodexDashboard-$version.exe"
       - if: runner.os == 'Linux'
         name: Sign Debian updater package
         env:

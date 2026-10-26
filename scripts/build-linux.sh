@@ -28,6 +28,7 @@ npm run tauri -- build --bundles deb,appimage
 for package in src-tauri/target/release/bundle/deb/*.deb; do
   npm run tauri -- signer sign --app-version "$(node -p 'require("./package.json").version')" "$package"
 done
-mkdir -p "$project_dir/artifacts/1.0/linux"
-find src-tauri/target/release/bundle -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.sig' \) -exec cp {} "$project_dir/artifacts/1.0/linux/" \;
-cp src-tauri/target/release/qufu-codex-dashboard "$project_dir/artifacts/1.0/linux/qufu-codex-dashboard"
+version="$(node -p 'require("./package.json").version')"
+mkdir -p "$project_dir/artifacts/$version/linux"
+find src-tauri/target/release/bundle -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.sig' \) -exec cp {} "$project_dir/artifacts/$version/linux/" \;
+cp src-tauri/target/release/qufu-codex-dashboard "$project_dir/artifacts/$version/linux/qufu-codex-dashboard"

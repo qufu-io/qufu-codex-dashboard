@@ -14,6 +14,8 @@ pub struct Usage {
     pub input: u64,
     pub cache: u64,
     pub write: u64,
+    #[serde(default)]
+    pub write_long: u64,
     pub output: u64,
     pub reasoning: u64,
     pub total: u64,
@@ -27,8 +29,11 @@ impl Usage {
             output,
             cache: v["cached_input_tokens"].as_u64().unwrap_or(0),
             write: v["cache_write_input_tokens"].as_u64().unwrap_or(0),
+            write_long: v["cache_write_12h_input_tokens"].as_u64().unwrap_or(0),
             reasoning: v["reasoning_output_tokens"].as_u64().unwrap_or(0),
-            total: v["total_tokens"].as_u64().unwrap_or(input + output),
+            total: v["total_tokens"]
+                .as_u64()
+                .unwrap_or(input.checked_add(output)?),
         })
     }
     fn delta(&self, prev: &Self) -> Self {
@@ -36,6 +41,7 @@ impl Usage {
             input: self.input.saturating_sub(prev.input),
             cache: self.cache.saturating_sub(prev.cache),
             write: self.write.saturating_sub(prev.write),
+            write_long: self.write_long.saturating_sub(prev.write_long),
             output: self.output.saturating_sub(prev.output),
             reasoning: self.reasoning.saturating_sub(prev.reasoning),
             total: self.total.saturating_sub(prev.total),
@@ -45,6 +51,7 @@ impl Usage {
         self.input += v.input;
         self.cache += v.cache;
         self.write += v.write;
+        self.write_long += v.write_long;
         self.output += v.output;
         self.reasoning += v.reasoning;
         self.total += v.total;
@@ -56,6 +63,10 @@ pub struct ModelUsage {
     pub model: String,
     pub usage: Usage,
     pub usd: Option<f64>,
+    #[serde(rename = "usdApproximate")]
+    pub usd_approximate: bool,
+    #[serde(rename = "usdPartial")]
+    pub usd_partial: bool,
     #[serde(skip)]
     pub pricing_model: String,
     #[serde(skip)]
@@ -68,30 +79,35 @@ pub struct ModelUsage {
     pub unpriced: bool,
 }
 impl ModelUsage {
-    fn current_usd(&self) -> Option<f64> {
+    fn quote(&self) -> crate::pricing::Quote {
         if self.unpriced {
-            return None;
+            return crate::pricing::Quote {
+                total_tokens: self.usage.total,
+                ..Default::default()
+            };
         }
-        let a = if self.short.total == 0 {
-            0.
-        } else {
-            crate::pricing::cost(&self.pricing_model, &self.pricing_tier, &self.short, false)?
-        };
-        let b = if self.long.total == 0 {
-            0.
-        } else {
-            crate::pricing::cost(&self.pricing_model, &self.pricing_tier, &self.long, true)?
-        };
-        Some(a + b)
+        crate::pricing::Quote::combine([
+            crate::pricing::quote(&self.pricing_model, &self.pricing_tier, &self.short, false),
+            if self.long.total > 0 {
+                crate::pricing::quote(&self.pricing_model, &self.pricing_tier, &self.long, true)
+            } else {
+                crate::pricing::Quote::default()
+            },
+        ])
     }
     fn repriced(&self) -> Self {
         let mut result = self.clone();
-        result.usd = self.current_usd();
+        let q = self.quote();
+        result.usd = q.usd;
+        result.usd_approximate = q.approximate;
+        result.usd_partial = q.partial;
         result
     }
 }
+
 #[derive(Clone)]
 pub struct UsageSample {
+    pub id: String,
     pub at: i64,
     pub usage: Usage,
     pub model: String,
@@ -105,6 +121,8 @@ pub struct Rollout {
     pub last_usage: Option<Usage>,
     last_model: String,
     last_tier: String,
+    last_at: i64,
+    cache_long: bool,
     context_capacity: Option<u64>,
     context_used: Option<u64>,
     previous: Usage,
@@ -122,6 +140,22 @@ pub struct Rollout {
     pub seen: HashSet<String>,
     pub created: i64,
     pub record_mode: bool,
+}
+fn parent_id(value: &Value) -> Option<String> {
+    if let Some(id) = value
+        .get("parent_thread_id")
+        .or_else(|| value.get("parent_session_id"))
+        .and_then(Value::as_str)
+    {
+        return Some(id.into());
+    }
+    match value {
+        Value::Object(v) => v.values().find_map(parent_id),
+        _ => None,
+    }
+}
+fn is_main_source(source: &str) -> bool {
+    matches!(source, "vscode" | "cli" | "appServer" | "app-server")
 }
 pub fn timestamp(v: &Value) -> i64 {
     v.as_str()
@@ -143,11 +177,11 @@ impl Rollout {
             self.created = timestamp(&p["timestamp"]);
             self.parent = p["parent_thread_id"]
                 .as_str()
-                .or_else(|| {
-                    p.pointer("/source/subagent/thread_spawn/parent_thread_id")
-                        .and_then(Value::as_str)
-                })
-                .map(str::to_owned);
+                .map(str::to_owned)
+                .or_else(|| parent_id(&p["source"]));
+            return;
+        }
+        if !self.id.is_empty() && self.id != expected {
             return;
         }
         if ty == "compacted" && t >= self.created {
@@ -165,15 +199,16 @@ impl Rollout {
             if let Some(tier) = p["service_tier"].as_str() {
                 self.tier = tier.into();
             }
+            self.cache_long = p
+                .pointer("/prompt_cache_options/ttl")
+                .and_then(Value::as_str)
+                == Some("12h");
             return;
         }
         if ty == "event_msg" {
             if p["type"] == "thread_settings_applied" {
-                if let Some(tier) = p
-                    .pointer("/thread_settings/service_tier")
-                    .and_then(Value::as_str)
-                {
-                    self.tier = tier.into();
+                if let Some(tier) = p.pointer("/thread_settings/service_tier") {
+                    self.tier = tier.as_str().unwrap_or("").into();
                 }
             }
             match p["type"].as_str().unwrap_or("") {
@@ -209,7 +244,7 @@ impl Rollout {
                 && matches!(p["rate_limits"]["limit_id"].as_str(), None | Some("codex"))
             {
                 self.quota = Some((t, p["rate_limits"].clone()));
-                if t >= self.created && t >= chrono::Utc::now().timestamp() - 14 * 86400 {
+                if t >= self.created {
                     self.quota_history.push((t, json!({"primary":p["rate_limits"]["primary"],"secondary":p["rate_limits"]["secondary"],"plan_type":p["rate_limits"]["plan_type"]})));
                 }
             }
@@ -222,10 +257,18 @@ impl Rollout {
             if p["thread_id"].as_str() != Some(expected) {
                 return;
             }
-            if let Some(id) = p["response_id"].as_str() {
-                if !self.seen.insert(id.into()) {
-                    return;
-                }
+            let response_key = p["response_id"]
+                .as_str()
+                .filter(|id| !id.is_empty())
+                .map(str::to_owned)
+                .unwrap_or_else(|| {
+                    format!(
+                        "anonymous:{expected}:{t}:{}:{}",
+                        p["thread_token_usage"], p["usage"]
+                    )
+                });
+            if !self.seen.insert(response_key) {
+                return;
             }
             if !self.record_mode {
                 self.record_mode = true;
@@ -272,10 +315,22 @@ impl Rollout {
         } else {
             return;
         };
-        if is_record {
-            self.last_usage = raw.clone();
-            self.last_model = self.model.clone();
-            self.last_tier = self.tier.clone();
+        let event_model = p["model"]
+            .as_str()
+            .or_else(|| p.pointer("/response/model").and_then(Value::as_str))
+            .unwrap_or(&self.model)
+            .to_owned();
+        let event_tier = p["service_tier"].as_str().unwrap_or(&self.tier).to_owned();
+        if is_record && t >= self.last_at {
+            self.last_at = t;
+            self.last_usage = raw.clone().map(|mut u| {
+                if self.cache_long {
+                    u.write_long = u.write;
+                }
+                u
+            });
+            self.last_model = event_model.clone();
+            self.last_tier = event_tier.clone();
             self.context_used = raw.as_ref().map(|u| u.total);
         }
         let cur = if is_record {
@@ -290,7 +345,10 @@ impl Rollout {
             };
             c
         };
-        let d = if is_record {
+        let long_context = raw.as_ref().is_some_and(|u| u.input > 272_000);
+        let had_previous = self.usage.is_some();
+        let raw_known = raw.clone();
+        let mut d = if is_record {
             let Some(u) = raw else {
                 self.warnings.insert("Yanıt token verisi eksik".into());
                 return;
@@ -303,27 +361,63 @@ impl Rollout {
         } else {
             cur.delta(&self.previous)
         };
+        if !is_record && !had_previous {
+            if let Some(response) = &raw_known {
+                let baseline = cur.delta(response);
+                if baseline.total > 0 {
+                    self.usage = Some(baseline.clone());
+                    self.models.insert(
+                        "Geçmiş / model verisi yok".into(),
+                        ModelUsage {
+                            model: "Geçmiş / model verisi yok".into(),
+                            usage: baseline,
+                            unpriced: true,
+                            ..Default::default()
+                        },
+                    );
+                    d = response.clone();
+                }
+            }
+        }
+        if self.cache_long {
+            d.write_long = d.write;
+        }
         self.previous = cur;
         self.usage.get_or_insert_with(Usage::default).add(&d);
         if d.total == 0 {
             return;
         }
         self.events.push((t, d.total));
-        if is_record && t >= chrono::Utc::now().timestamp() - 14 * 86400 {
+        if (is_record || had_previous || raw_known.is_some()) && t > 0 {
             self.window_samples.push(UsageSample {
+                id: if is_record {
+                    format!(
+                        "response:{}",
+                        p["response_id"]
+                            .as_str()
+                            .filter(|id| !id.is_empty())
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| format!(
+                                "anonymous:{expected}:{t}:{}:{}",
+                                p["thread_token_usage"], p["usage"]
+                            ))
+                    )
+                } else {
+                    format!("legacy:{expected}:{t}:{}", self.previous.total)
+                },
                 at: t,
                 usage: d.clone(),
-                model: self.model.clone(),
-                tier: self.tier.clone(),
+                model: event_model.clone(),
+                tier: event_tier.clone(),
             });
         }
         let key = format!(
             "{}{}",
-            self.model,
-            if self.tier.is_empty() {
+            event_model,
+            if event_tier.is_empty() {
                 String::new()
             } else {
-                format!(" / {}", self.tier)
+                format!(" / {}", event_tier)
             }
         );
 
@@ -334,12 +428,12 @@ impl Rollout {
                 model: key,
                 usage: Usage::default(),
                 usd: Some(0.),
-                pricing_model: self.model.clone(),
-                pricing_tier: self.tier.clone(),
+                pricing_model: event_model.clone(),
+                pricing_tier: event_tier.clone(),
                 ..Default::default()
             });
         entry.usage.add(&d);
-        if d.input > 272_000 {
+        if long_context || d.input > 272_000 {
             entry.long.add(&d);
         } else {
             entry.short.add(&d);
@@ -363,7 +457,13 @@ impl Rollout {
             let n = reader
                 .read_until(b'\n', &mut line)
                 .map_err(|e| e.to_string())?;
-            if n == 0 || !line.ends_with(b"\n") {
+            if n == 0 {
+                break;
+            }
+            if !line.ends_with(b"\n") {
+                if let Ok(event) = serde_json::from_slice(&line) {
+                    self.ingest(event, id);
+                }
                 break;
             }
             self.offset += n as u64;
@@ -392,9 +492,25 @@ impl Rollout {
         self.modified = meta.modified().ok();
         let now = chrono::Utc::now().timestamp();
         self.events.retain(|(t, _)| *t > now - 60);
-        self.window_samples.retain(|s| s.at >= now - 14 * 86400);
-        self.quota_history.retain(|(t, _)| *t >= now - 14 * 86400);
+
         Ok(())
+    }
+    pub(crate) fn cursor(&self) -> Value {
+        json!({"offset":self.offset,"previous":self.previous,"created":self.created,"id":self.id,"model":self.model,"tier":self.tier,"recordMode":self.record_mode,"cacheLong":self.cache_long})
+    }
+    pub(crate) fn restore_cursor(state: &Value) -> Self {
+        Self {
+            offset: state["offset"].as_u64().unwrap_or(0),
+            previous: serde_json::from_value(state["previous"].clone()).unwrap_or_default(),
+            created: state["created"].as_i64().unwrap_or(0),
+            id: state["id"].as_str().unwrap_or("").into(),
+            model: state["model"].as_str().unwrap_or("").into(),
+            tier: state["tier"].as_str().unwrap_or("").into(),
+            record_mode: state["recordMode"].as_bool().unwrap_or(false),
+            cache_long: state["cacheLong"].as_bool().unwrap_or(false),
+            usage: Some(Usage::default()),
+            ..Default::default()
+        }
     }
     pub fn last_usd(&self) -> Option<f64> {
         let usage = self.last_usage.as_ref()?;
@@ -412,14 +528,20 @@ impl Rollout {
             json!({"used":used,"capacity":capacity,"percent":(used as f64 / capacity as f64 * 100.).min(100.)}),
         )
     }
-    pub fn usd(&self) -> Option<f64> {
+    pub fn cost_quote(&self) -> crate::pricing::Quote {
         if self.usage.is_none() {
-            None
-        } else {
-            self.models
-                .values()
-                .try_fold(0., |s, m| m.current_usd().map(|v| s + v))
+            return crate::pricing::Quote::default();
         }
+        crate::pricing::Quote::combine(self.models.values().map(ModelUsage::quote))
+    }
+    pub fn usd(&self) -> Option<f64> {
+        self.cost_quote().usd
+    }
+    pub fn last_quote(&self) -> crate::pricing::Quote {
+        self.last_usage
+            .as_ref()
+            .map(|u| crate::pricing::quote(&self.last_model, &self.last_tier, u, u.input > 272_000))
+            .unwrap_or_default()
     }
     pub fn tpm(&self, now: i64) -> Option<u64> {
         self.usage.as_ref().map(|_| {
@@ -449,6 +571,8 @@ pub struct Thread {
 pub struct Reader {
     pub home: PathBuf,
     pub cache: HashMap<String, Rollout>,
+    paths: HashMap<String, PathBuf>,
+    paths_scanned: Option<SystemTime>,
 }
 impl Reader {
     pub fn new() -> Self {
@@ -464,6 +588,7 @@ impl Reader {
                     .join(".codex")
                 }),
             cache: HashMap::new(),
+            ..Default::default()
         }
     }
     pub fn catalog(&self) -> Result<(Vec<Thread>, Value), String> {
@@ -520,10 +645,7 @@ impl Reader {
             let cwd: String = r.get(2).unwrap_or_default();
             let source: String = r.get(4).unwrap_or_default();
             let src: Value = serde_json::from_str(&source).unwrap_or(Value::Null);
-            let parent = src
-                .pointer("/subagent/thread_spawn/parent_thread_id")
-                .and_then(Value::as_str)
-                .map(str::to_owned);
+            let parent = parent_id(&src);
             let pid = global
                 .pointer(&format!("/thread-project-assignments/{id}/projectId"))
                 .and_then(Value::as_str)
@@ -565,10 +687,9 @@ impl Reader {
                 s.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
             {
                 for edge in edges.flatten() {
-                    if let Some(t) = result
-                        .iter_mut()
-                        .find(|t| t.id == edge.1 && t.source.contains("subagent"))
-                    {
+                    if let Some(t) = result.iter_mut().find(|t| {
+                        t.id == edge.1 && (!is_main_source(&t.source) || t.parent.is_some())
+                    }) {
                         t.parent = Some(edge.0);
                     }
                 }
@@ -576,14 +697,75 @@ impl Reader {
         }
         Ok((result, global))
     }
+    pub(crate) fn rollout_path(&mut self, t: &Thread) -> PathBuf {
+        let path = PathBuf::from(&t.path);
+        if path.is_file() {
+            return path;
+        }
+        if self
+            .paths_scanned
+            .is_none_or(|at| at.elapsed().map(|d| d.as_secs() >= 30).unwrap_or(true))
+        {
+            self.paths.clear();
+            let mut pending = vec![
+                self.home.join("sessions"),
+                self.home.join("archived_sessions"),
+            ];
+            while let Some(directory) = pending.pop() {
+                if let Ok(entries) = fs::read_dir(directory) {
+                    for entry in entries.flatten() {
+                        let Ok(kind) = entry.file_type() else {
+                            continue;
+                        };
+                        if kind.is_dir() {
+                            pending.push(entry.path());
+                        } else if kind.is_file()
+                            && entry.path().extension().is_some_and(|v| v == "jsonl")
+                        {
+                            self.paths.insert(
+                                entry.file_name().to_string_lossy().into_owned(),
+                                entry.path(),
+                            );
+                        }
+                    }
+                }
+            }
+            self.paths_scanned = Some(SystemTime::now());
+        }
+        self.paths
+            .iter()
+            .find(|(name, _)| {
+                name.ends_with(&format!("-{}.jsonl", t.id)) || **name == format!("{}.jsonl", t.id)
+            })
+            .map(|(_, p)| p.clone())
+            .unwrap_or(path)
+    }
     pub fn read_thread(&mut self, t: &Thread) -> Result<&Rollout, String> {
+        let path = self.rollout_path(t);
         let cached = self.cache.entry(t.id.clone()).or_default();
-        cached.read(Path::new(&t.path), &t.id)?;
+        cached.read(&path, &t.id)?;
         Ok(cached)
     }
     pub fn snapshot(&mut self, selected: Option<&str>) -> Result<Value, String> {
         let now = chrono::Utc::now().timestamp();
-        let (all, _global) = self.catalog()?;
+        let (mut all, _global) = self.catalog()?;
+        for t in &mut all {
+            if !is_main_source(&t.source) && t.parent.is_none() {
+                if let Ok(f) = File::open(self.rollout_path(t)) {
+                    for line in BufReader::new(f).lines().map_while(Result::ok).take(8) {
+                        if let Ok(v) = serde_json::from_str::<Value>(&line) {
+                            if v["type"] == "session_meta" {
+                                t.parent = v["payload"]["parent_thread_id"]
+                                    .as_str()
+                                    .map(str::to_owned)
+                                    .or_else(|| parent_id(&v["payload"]["source"]));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         let mut sessions = vec![];
         let mut excluded = HashMap::<String, u64>::new();
         let mut errors = vec![];
@@ -651,7 +833,11 @@ impl Reader {
             while changed {
                 changed = false;
                 for (id, r) in &self.cache {
-                    if r.parent.as_ref().is_some_and(|p| ids.contains(p)) && ids.insert(id.clone())
+                    if all
+                        .iter()
+                        .any(|t| t.id == *id && (!is_main_source(&t.source) || t.parent.is_some()))
+                        && r.parent.as_ref().is_some_and(|p| ids.contains(p))
+                        && ids.insert(id.clone())
                     {
                         changed = true;
                     }
@@ -659,28 +845,30 @@ impl Reader {
             }
             let mut children = vec![];
             let mut child_usage = Usage::default();
-            let mut child_usd = Some(0.);
+            let mut quotes = Vec::new();
+            let mut known = 0;
             let mut complete = true;
             for c in all.iter().filter(|c| c.id != t.id && ids.contains(&c.id)) {
-                match self.read_thread(c) {
-                    Ok(r) => {
-                        if let Some(u) = &r.usage {
-                            child_usage.add(u);
-                        } else {
-                            complete = false;
-                        }
-                        child_usd = child_usd.zip(r.usd()).map(|(a, b)| a + b);
-                        children.push(json!({"id":c.id,"title":c.title,"usage":r.usage,"usd":r.usd(),"status":r.status,"internal":c.source.contains("guardian")}));
-                    }
-                    Err(_) => {
-                        complete = false;
-                        child_usd = None;
-                        children.push(json!({"id":c.id,"title":c.title,"usage":null,"usd":null,"status":"Kayıt okunamıyor","internal":c.source.contains("guardian")}));
-                    }
+                let _ = self.read_thread(c);
+                let r = self.cache.get(&c.id);
+                let usage = r.and_then(|r| r.usage.as_ref());
+                if let Some(u) = usage {
+                    child_usage.add(u);
+                    known += 1;
+                } else {
+                    complete = false;
                 }
+                let q = r.map(Rollout::cost_quote).unwrap_or_default();
+                quotes.push(q.clone());
+                children.push(json!({"id":c.id,"parentId":c.parent,"title":c.title,"usage":usage,"usd":q.usd,"usdApproximate":q.approximate,"usdPartial":q.partial,"status":r.map(|r|r.status.as_str()).unwrap_or("Kayıt okunamıyor"),"internal":c.source.contains("guardian")}));
+            }
+            let mut child_quote = crate::pricing::Quote::combine(quotes);
+            child_quote.partial |= !complete;
+            if known == 0 && !children.is_empty() {
+                child_quote.usd = None;
             }
             if let Some(r) = self.cache.get(&t.id) {
-                detail = json!({"thread":t,"usage":r.usage,"lastUsage":r.last_usage,"lastUsd":r.last_usd(),"context":r.context(),"contextCapacity":r.context_capacity,"usd":r.usd(),"tpm":r.tpm(now),"model":r.model,"usageSource":if r.record_mode{"response records"}else{"legacy cumulative counters"},"status":if r.status.is_empty(){"Bilinmiyor"}else{&r.status},"models":r.models.values().map(ModelUsage::repriced).collect::<Vec<_>>(),"warnings":r.warnings,"children":children,"childUsage":if complete{Some(child_usage)}else{None},"childUsd":child_usd,"childrenComplete":complete});
+                detail = json!({"thread":t,"usage":r.usage,"lastUsage":r.last_usage,"lastUsd":r.last_usd(),"context":r.context(),"contextCapacity":r.context_capacity,"usd":r.usd(),"usdApproximate":r.cost_quote().approximate,"usdPartial":r.cost_quote().partial,"lastUsdApproximate":r.last_quote().approximate,"lastUsdPartial":r.last_quote().partial,"tpm":r.tpm(now),"model":r.model,"usageSource":if r.record_mode{"response records"}else{"legacy cumulative counters"},"status":if r.status.is_empty(){"Bilinmiyor"}else{&r.status},"models":r.models.values().map(ModelUsage::repriced).collect::<Vec<_>>(),"warnings":r.warnings,"children":children,"childUsage":if known>0 || children.is_empty(){Some(child_usage)}else{None},"childUsd":child_quote.usd,"childUsdApproximate":child_quote.approximate,"childUsdPartial":child_quote.partial,"childrenComplete":complete});
             }
         }
         let mut quota = self
@@ -812,7 +1000,10 @@ mod tests {
         r.model = "gpt-6.1-sol".into();
         r.ingest(record("a", "r1", 1000, 100), "a");
         assert_eq!(r.usage.as_ref().unwrap().total, 1000);
-        assert!(r.usd().is_none());
+        assert!((r.usd().unwrap() - 0.0002).abs() < 1e-10);
+        assert!(r.cost_quote().partial);
+        assert_eq!(r.cost_quote().priced_tokens, 100);
+        assert_eq!(r.cost_quote().total_tokens, 1000);
         assert_eq!(r.tpm(timestamp(&json!("2026-10-18T12:00:00Z"))), Some(100));
     }
     #[test]
@@ -855,6 +1046,7 @@ mod tests {
         let mut r = Reader {
             home: root.clone(),
             cache: HashMap::new(),
+            ..Default::default()
         };
         let v = r.snapshot(None).unwrap();
         let ids: Vec<_> = v["sessions"]
@@ -882,7 +1074,8 @@ mod tests {
         fs::write(&path, &line).unwrap();
         let mut r = Rollout::default();
         r.read(&path, "a").unwrap();
-        assert!(r.usage.is_none());
+        assert_eq!(r.usage.as_ref().unwrap().total, 10);
+        assert_eq!(r.offset, 0);
         fs::write(&path, format!("{line}\n")).unwrap();
         r.read(&path, "a").unwrap();
         assert_eq!(r.usage.unwrap().total, 10);
@@ -955,5 +1148,209 @@ mod tests {
         assert!((r.last_usd().unwrap() - 0.000496).abs() < 1e-10);
         r.ingest(record("a", "r2", 220, 100), "a");
         assert!(r.last_usd().is_none());
+    }
+}
+
+#[cfg(test)]
+mod regression_tests {
+    use super::*;
+    use rusqlite::params;
+    fn temp() -> PathBuf {
+        let p = std::env::temp_dir().join(format!(
+            "qufu-subagents-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&p).unwrap();
+        p
+    }
+    fn record(id: &str, response: &str, tokens: u64) -> Value {
+        json!({"type":"token_usage_record","timestamp":"2026-10-26T12:00:00Z","payload":{"thread_id":id,"response_id":response,"usage":{"input_tokens":tokens,"cached_input_tokens":0,"output_tokens":0},"thread_token_usage":{"input_tokens":tokens,"output_tokens":0}}})
+    }
+    #[test]
+    fn nested_archived_and_partial_children_keep_the_known_subtotal_once() {
+        let root = temp();
+        let db = Connection::open(root.join("state_5.sqlite")).unwrap();
+        db.execute_batch("CREATE TABLE threads(id TEXT PRIMARY KEY,name TEXT,title TEXT,cwd TEXT,rollout_path TEXT,source TEXT,archived INTEGER,tokens_used INTEGER,updated_at INTEGER);CREATE TABLE thread_spawn_edges(parent_thread_id TEXT,child_thread_id TEXT);").unwrap();
+        for (id, source, archived) in [
+            ("root", "cli", 0),
+            (
+                "a",
+                r#"{"subagent":{"thread_spawn":{"parent_thread_id":"root"}}}"#,
+                1,
+            ),
+            ("b", "worker", 1),
+            ("missing", "subagent", 0),
+            ("fork", "cli", 0),
+        ] {
+            let path = root.join(format!("rollout-{id}.jsonl"));
+            if id != "missing" {
+                let mut lines=vec![json!({"type":"session_meta","payload":{"id":id,"source":if id=="b"{json!({"subagent":{"other":{"parent_thread_id":"a"}}})}else{json!(source)}}}).to_string(),json!({"type":"turn_context","payload":{"model":"gpt-6.1-sol"}}).to_string()];
+                if id == "a" {
+                    lines.push(json!({"type":"event_msg","timestamp":"2026-10-26T12:00:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":20,"output_tokens":0},"last_token_usage":{"input_tokens":20,"output_tokens":0}}}}).to_string());
+                } else {
+                    lines.push(
+                        record(id, &format!("r-{id}"), if id == "b" { 30 } else { 10 }).to_string(),
+                    );
+                }
+                if id == "b" {
+                    lines.push(record("a", "copied", 1000).to_string());
+                }
+                fs::write(&path, lines.join("\n")).unwrap();
+            }
+            db.execute(
+                "INSERT INTO threads VALUES(?1,?1,?1,'C:/example',?2,?3,?4,100,1)",
+                params![id, path.to_string_lossy(), source, archived],
+            )
+            .unwrap();
+        }
+        for (parent, child) in [
+            ("root", "a"),
+            ("root", "a"),
+            ("a", "b"),
+            ("root", "missing"),
+            ("root", "fork"),
+        ] {
+            db.execute(
+                "INSERT INTO thread_spawn_edges VALUES(?1,?2)",
+                params![parent, child],
+            )
+            .unwrap();
+        }
+        let archived = root.join("archived_sessions/2026");
+        fs::create_dir_all(&archived).unwrap();
+        fs::rename(
+            root.join("rollout-a.jsonl"),
+            archived.join("rollout-a.jsonl"),
+        )
+        .unwrap();
+        drop(db);
+        let mut reader = Reader {
+            home: root.clone(),
+            ..Default::default()
+        };
+        let fork_path = root.join("rollout-fork.jsonl");
+        let text = fs::read_to_string(&fork_path).unwrap();
+        let mut lines: Vec<String> = text.lines().map(str::to_owned).collect();
+        let mut meta: Value = serde_json::from_str(&lines[0]).unwrap();
+        meta["payload"]["parent_thread_id"] = json!("root");
+        lines[0] = meta.to_string();
+        fs::write(&fork_path, lines.join("\n")).unwrap();
+        reader.snapshot(Some("fork")).unwrap();
+        let v = reader.snapshot(Some("root")).unwrap();
+        let d = &v["detail"];
+        assert_eq!(d["usage"]["total"], 10);
+        assert_eq!(d["children"].as_array().unwrap().len(), 3);
+        assert_eq!(d["childUsage"]["total"], 50);
+        assert_eq!(d["childrenComplete"], false);
+        assert!((d["childUsd"].as_f64().unwrap() - 0.0001).abs() < 1e-10);
+        assert_eq!(d["childUsdPartial"], true);
+        let missing = d["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["id"] == "missing")
+            .unwrap();
+        assert!(missing["usage"].is_null());
+        let sessions: Vec<_> = v["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["id"].as_str().unwrap())
+            .collect();
+        assert!(sessions.contains(&"fork"));
+        assert!(!sessions.contains(&"b"));
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn incomplete_json_waits_but_complete_tail_is_read_and_deduplicated() {
+        let root = temp();
+        let path = root.join("rollout-a.jsonl");
+        let line = record("a", "r1", 20).to_string();
+        fs::write(&path, &line[..line.len() / 2]).unwrap();
+        let mut r = Rollout::default();
+        r.read(&path, "a").unwrap();
+        assert!(r.usage.is_none());
+        fs::write(&path, &line).unwrap();
+        r.read(&path, "a").unwrap();
+        assert_eq!(r.usage.as_ref().unwrap().total, 20);
+        fs::write(&path, format!("{line}\n{}\n", record("a", "r2", 5))).unwrap();
+        r.read(&path, "a").unwrap();
+        assert_eq!(r.usage.as_ref().unwrap().total, 25);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn explicit_response_model_and_tier_win_over_a_later_turn_context() {
+        let mut r = Rollout {
+            model: "gpt-6.1-sol".into(),
+            ..Default::default()
+        };
+        let mut v = record("a", "r", 100);
+        v["payload"]["model"] = json!("gpt-6-astra-high");
+        v["payload"]["service_tier"] = json!("priority");
+        r.ingest(v, "a");
+        assert!((r.last_usd().unwrap() - 0.002).abs() < 1e-10);
+        assert!((r.usd().unwrap() - 0.002).abs() < 1e-10);
+        r.ingest(
+            json!({"type":"turn_context","payload":{"model":"gpt-6-luna"}}),
+            "a",
+        );
+        assert!((r.last_usd().unwrap() - 0.002).abs() < 1e-10);
+    }
+    #[test]
+    fn missing_model_cost_keeps_other_models_without_guessing_internal_prices() {
+        let mut r = Rollout {
+            model: "gpt-6.1-sol".into(),
+            ..Default::default()
+        };
+        r.ingest(record("a", "r1", 100), "a");
+        r.model = "codex-auto-review".into();
+        r.ingest(record("a", "r2", 200), "a");
+        assert_eq!(r.usage.as_ref().unwrap().total, 300);
+        assert!(r.cost_quote().partial);
+        assert!((r.usd().unwrap() - 0.0002).abs() < 1e-10);
+        assert!(r.last_usd().is_none());
+    }
+    #[test]
+    fn explicit_null_settings_tier_clears_priority_but_absent_turn_tier_does_not() {
+        let mut r = Rollout {
+            tier: "priority".into(),
+            ..Default::default()
+        };
+        r.ingest(
+            json!({"type":"turn_context","payload":{"model":"gpt-6.1-sol"}}),
+            "a",
+        );
+        assert_eq!(r.tier, "priority");
+        r.ingest(json!({"type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"service_tier":null}}}),"a");
+        assert_eq!(r.tier, "");
+    }
+    #[test]
+    fn complete_tail_without_response_id_is_not_recounted_on_refresh_or_newline() {
+        let root = temp();
+        let path = root.join("anonymous.jsonl");
+        let mut first = record("a", "unused", 10);
+        first["payload"]
+            .as_object_mut()
+            .unwrap()
+            .remove("response_id");
+        let line = first.to_string();
+        std::fs::write(&path, &line).unwrap();
+        let mut r = Rollout::default();
+        r.read(&path, "a").unwrap();
+        r.read(&path, "a").unwrap();
+        assert_eq!(r.usage.as_ref().unwrap().total, 10);
+        std::fs::write(&path, format!("{line}\n")).unwrap();
+        r.read(&path, "a").unwrap();
+        assert_eq!(r.usage.as_ref().unwrap().total, 10);
+        let mut second = first.clone();
+        second["payload"]["thread_token_usage"]["input_tokens"] = json!(20);
+        std::fs::write(&path, format!("{line}\n{}\n", second)).unwrap();
+        r.read(&path, "a").unwrap();
+        assert_eq!(r.usage.as_ref().unwrap().total, 20);
+        assert_eq!(r.window_samples.len(), 2);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

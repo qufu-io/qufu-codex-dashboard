@@ -1,5 +1,13 @@
 export type Language = 'tr' | 'en';
 const en: Record<string, string> = {
+  'Doğrulama örnekleri':'Validation samples','Yerel kayıtlar eksik; yerel tüketim doğrulanabilen alt toplamdır.':'Local records are incomplete; local usage is the verified subtotal.','Sınırlı doğruluk; ayrılmış pencerelerde ölçüldü':'Limited accuracy; measured on held-out windows',
+  'Kısmi':'Partial','Kısmi fiyatlar':'Partial prices','Doğrulanabilen kısmi maliyet':'Verified partial cost',
+  'Kuruluyor…':'Installing…','Kuruldu':'Installed','Başarısız':'Failed','Gözlemler':'Observations',
+  'Token tüketimi ve limit yüzdesi değişiminden öğrenilen efektif kapasite; resmi token kotası değildir.':'Effective capacity learned from token usage and limit-percentage changes; not an official token quota.',
+  'Ayrılmış pencerelerde doğrulandı':'Validated on held-out windows','Tutarsız gözlemler; kapasite gösterilmiyor':'Inconsistent observations; capacity is unavailable',
+  'Kalibrasyon öğreniliyor; yeterli bağımsız doğrulama yok.':'Calibration is learning; independent validation is insufficient.',
+  'Güvenilir kalibrasyon için yeterli yerel veri yok.':'Insufficient local data for reliable calibration.',
+
   'Son güncelleme':'Last updated','Limitler güncel olmayabilir':'Limits may be out of date','Az önce':'Just now','Hesap limit verisi bekleniyor':'Waiting for account limit data',
   'Güncellemeler':'Updates','Güncellemeleri kontrol et':'Check for updates','Kontrol ediliyor…':'Checking…','İndir ve kur':'Download and install','İndiriliyor ve kuruluyor…':'Downloading and installing…',
   'GitHub sürümleri kontrol ediliyor.':'Checking GitHub releases.','İmza doğrulanacak; kurulum sırasında uygulama yeniden başlayabilir.':'The signature will be verified; the app may restart during installation.',

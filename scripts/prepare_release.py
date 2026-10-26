@@ -19,7 +19,7 @@ for p in files:
         p.rename(normalized)
 files = sorted(p for p in root.iterdir() if p.is_file() and p.suffix in ['.exe', '.deb', '.AppImage', '.sig'])
 expected = {f'Qufu.Codex.Dashboard_{args.version}{suffix}' for suffix in ['_x64-setup.exe', '_amd64.deb', '_amd64.AppImage']}
-allowed = expected | {name + '.sig' for name in expected} | {'QufuCodexDashboard-1.0.exe'}
+allowed = expected | {name + '.sig' for name in expected} | {f'QufuCodexDashboard-{args.version}.exe'}
 extra = [p.name for p in files if p.name not in allowed]
 if extra:
     raise SystemExit(f'Unexpected distribution assets: {extra}')
@@ -38,7 +38,7 @@ for suffix, targets in [('_x64-setup.exe', ['windows-x86_64', 'windows-x86_64-ns
     info = {'url': f'https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/download/v{args.version}/{quote(package.name)}', 'signature': signature}
     for target in targets:
         platforms[target] = info
-manifest = {'version': args.version, 'notes': f'Qufu Codex Dashboard {args.version} Â· alper@qufu.io', 'pub_date': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'platforms': platforms}
+manifest = {'version': args.version, 'notes': f'Qufu Codex Dashboard {args.version} · alper@qufu.io', 'pub_date': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'platforms': platforms}
 (root / 'latest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
 checksummed = files + [root / 'latest.json']
 (root / 'SHA256SUMS.txt').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in checksummed), encoding='utf-8')

@@ -9,7 +9,7 @@
 
 ## Acceptance gate
 
-The owner accepted the updated 1.0 package and requested the supplied screenshot. Portable Windows download is retained. Publication is authorized after the signed platform build gates pass.
+The owner accepted the usage fixes and compact settings and explicitly requested version 1.0.1 commit/push/release on 2026-10-26. Portable Windows download is retained. Publication is authorized after the signed platform build gates pass.
 
 ## Build and publication
 
@@ -17,7 +17,7 @@ The owner accepted the updated 1.0 package and requested the supplied screenshot
 2. The updater private signing key is stored locally under ignored `artifacts/private/signing/updater.key`. Keep a secure backup. Configure `TAURI_SIGNING_PRIVATE_KEY` as a source repository Actions secret before CI signed builds; do not upload it to the distribution repository or embed it in the app.
 3. `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is empty for the current key. Only the public verification key is included in application configuration. Package signatures bind the application version.
 4. Collect the Windows installer, Linux deb/AppImage, signature files and checksums. Run `scripts/prepare_release.py` to create `latest.json`; target URLs must point to the public distribution release.
-5. Wait for owner acceptance, then publish release `v1.0.0` in the public distribution repository with the bilingual notes, signed packages, `latest.json`, and SHA256SUMS.txt. Do not rewrite an existing source tag or force push. The first source tag predates the updater refinement; future release provenance must record the actual source commit separately.
+5. Wait for owner acceptance, then publish the accepted release tag (currently `v1.0.1`) in the public distribution repository with the bilingual notes, signed packages, `latest.json`, and SHA256SUMS.txt. Do not rewrite an existing source tag or force push. The first source tag predates the updater refinement; future release provenance must record the actual source commit separately.
 6. Verify anonymous access, asset checksums, manifest platform URLs, and repository visibility. Never describe a draft as a downloadable public release.
 
 ## Updates
