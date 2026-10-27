@@ -65,3 +65,8 @@ Synthetic UI tests do not prove native window-manager behavior. Native desktop a
 - The local optimized Windows test executable was built. Native desktop automation was unavailable (native pipe not connected), and this WSL installation had no Rust toolchain; actual native window interactions and a Linux build are not claimed as verified. Windows window creation uses an async command as required by the Tauri/WebView2 thread constraint.
 
 Standalone startup follow-up: after correcting a plain-Cargo packaging mistake, the Tauri CLI production build was checked through its actual WebView2 page with the Vite server unavailable. The embedded http://tauri.localhost/ dashboard rendered and the native IPC bridge was present. This establishes native main-window loading; other native window interactions and Linux compilation remain separate checks.
+
+
+## Release verification — 1.0.2
+
+The subsequent [source CI](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40575838994) passed 61 Rust and 29 Playwright tests on each of Windows and Ubuntu 22.04. [Signed package CI](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40575838624) successfully compiled and packaged Windows NSIS and Linux DEB/AppImage. This establishes Linux compilation in CI, separately from the local WSL tooling limitation above. Package signatures, signed version and tamper rejection passed; all nine published files were downloaded anonymously with matching SHA-256 digests. Native Linux desktop interaction and clean-host installation remain unverified.
