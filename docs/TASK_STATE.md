@@ -38,3 +38,7 @@ The Tauri CLI production build succeeded. With localhost:5173 unavailable, the a
 
 ## Publication completed
 Version metadata is 1.0.2. Bilingual README/release notes, changelog, measurement methodology, privacy/development/release guidance and contribution templates are published. GitHub community profile is 100%; MIT, conduct, security and contribution policies remain intact. Author/contact: alper@qufu.io. Distribution documentation commit: 27e3047. Public release: https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.2 . No private diagnostics or keys were published. No further release action is pending.
+
+
+## Active same-version refresh
+User authorized republication without changing 1.0.2. Removed Compact view from Settings and retired its saved key in schema 6; other preferences survive. Reproduced the old compact=false startup failure with a failing regression. Automatic sizing now measures the intended width, waits for fonts, serializes resize requests and reconciles native resize events. Main width 300px; expanded panel 371px; narrow rendering remains responsive. All 31 Playwright tests passed, including automatic startup without a Settings cycle. Privacy-safe screenshot uses only synthetic Example Workspace data. Pending: scoped commit/push, workflow_dispatch signed build of exact new main commit, platform CI, signatures, backed-up replacement of existing release assets, updated source provenance and anonymous verification. Preserve original v1.0.2 tags and updater's higher-version check.

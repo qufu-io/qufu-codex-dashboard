@@ -9,8 +9,10 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 [Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.2](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.2) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 
 <p align="center">
-  <img src="docs/images/dashboard-1.0.png" width="300" alt="Qufu Codex Dashboard 1.0 showing session tokens, last request cost, context usage and account limits">
+  <img src="docs/images/dashboard-1.0.2.png" width="300" alt="Qufu Codex Dashboard 1.0.2 with illustrative workspace and task measurements">
 </p>
+
+*Illustrative data; no personal session information. / Örnek veriler; kişisel session bilgisi içermez.*
 
 [What’s new / Yenilikler](docs/CHANGES-1.0.2.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
 
@@ -53,6 +55,8 @@ Uygulama **ücretsiz ve MIT lisanslı açık kaynaklıdır**. [Kaynak kodunu](ht
 | Linux x64 | `*_amd64.AppImage` | `chmod +x indirilen-dosya.AppImage` ardından dosyayı çalıştır. |
 
 **Gereksinimler:** Yerel session verisi oluşturan Codex kurulumu. Canlı hesap limitleri için oturum açılmış Codex CLI (`codex` komutu PATH üzerinde) gerekir. Windows kurucusu WebView2'yi kontrol eder; eksikse internetten indirip otomatik kurar. WebView2 kurulumu başarısız olursa uygulama kurulumu durur. Linux'ta WebKitGTK 4.1 ve çalışan bir masaüstü oturumu gerekir; GNOME'da tray için AppIndicator eklentisi gerekebilir. Wayland, pencere konumunu ve her zaman üstte davranışını sınırlandırabilir.
+
+**Aynı sürüm yenilemesi:** Compact view seçeneği kaldırıldı ve ilk açılış boyutu düzeltildi. Zaten 1.0.2 kullanıyorsan aşağıdaki kurulumu yeniden indir; sürüm aynı kaldığı için uygulama içi kontrol bu yenilemeyi yeni sürüm saymaz.
 
 **Güncelleme:** Eski uygulamayı tray menüsündeki **Quit / Çıkış** ile kapat, ardından yeni kurulumu çalıştır. Pencerenin X düğmesi uygulamayı tray'e gizler.
 
@@ -131,6 +135,8 @@ Account percentages come from the installed Codex `account/rateLimits/read` inte
 The app does not upload conversations or usage logs to a dashboard server and does not read authentication token files. Network activity is limited to public pricing requests, the installed Codex account reader, and GitHub update checks/downloads.
 
 ### Updates and license
+
+**Refreshed 1.0.2 build:** Compact view is removed and startup sizing is fixed. If you already run 1.0.2, download and reinstall the current installer; same-version rebuilds are not offered as a newer in-app update.
 
 Open Settings → **Check for updates**. When a newer release is found, click **Download and install** to approve installation. The package signature and signed version are verified first. Windows may close during installation; Linux restarts the app afterward. The GitHub button opens the releases page. A failed network or missing release manifest is reported as a failed check, never as proof that the app is current.
 

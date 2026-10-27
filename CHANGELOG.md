@@ -4,6 +4,8 @@ Notable user-facing changes. Releases use semantic versioning; published tags ar
 
 ## 1.0.2 — 2026-10-27
 
+Same-version refresh: removed the Compact view setting; fixed startup and panel sizing, migrated legacy settings without losing other preferences, and replaced the README image with a privacy-safe illustrative screenshot. Existing 1.0.2 installations need a manual reinstall to receive this refresh; the version and original source tag remain unchanged.
+
 ### Added
 
 - Complete task-turn accounting, task states and per-response costs for mixed-model tasks.

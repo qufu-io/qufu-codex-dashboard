@@ -11,3 +11,6 @@ Approved 1.0 update: Square Activity system icon with black outer frame; in-app 
 
 
 Development measurement update: Last Request is a whole user task keyed by turn_id, with separate active/completed state and per-response model pricing. Session Total keeps its raw main-thread scope; CLI Used is separately exposed. Context uses the official 12,000-token baseline and remaining-percent rounding. Only hourly N/C/O weights are fit; weekly capacity reuses them with an assumed or learned r (initially 0.15). Capacity is in fixed uncached-input-equivalent units, never an official raw-token quota. Numeric histories persist additively without conversation text. Functional 480×300 history windows open on the relevant metric, preserve missing-data gaps and follow theme/language; the main compact layout is retained. See [measurement contract](docs/MEASUREMENTS.md).
+
+
+Same-version 1.0.2 refresh: one automatic content-fitted layout (300px main, 371px expanded panel), no Compact view preference. Startup measures the intended content width and fonts, and resize events reconcile restored native geometry. Other saved preferences persist. Public screenshots use illustrative, non-personal data.

@@ -47,7 +47,7 @@ const en: Record<string, string> = {
   'Subagent’lar':'Subagents','Eksik kayıt var':'Some records are missing','Ana session’dan ayrı':'Separate from main session','5 saatlik hesap limiti':'5-hour account limit','Haftalık hesap limiti':'Weekly account limit',
   'Yeni limit verisi bekleniyor':'Waiting for updated limits','Veri yok':'No data','Bağlantı bekleniyor · son veri':'Waiting for connection · last update','Yerel veri':'Local data',
   'Hesap limit bağlantısı bekleniyor':'Connecting to account limits','Auto Follow: manuel':'Auto Follow: manual','Session bulunamadı.':'No sessions found.',
-  'Yalnızca tüketimi doğrulanan ana sohbetler.':'Only main sessions with confirmed usage.','Kapat':'Close','Kompakt görünüm':'Compact view','Tema':'Theme','Koyu':'Dark','Açık':'Light','Şeffaflık':'Transparency','Dil':'Language',
+  'Yalnızca tüketimi doğrulanan ana sohbetler.':'Only main sessions with confirmed usage.','Kapat':'Close','Tema':'Theme','Koyu':'Dark','Açık':'Light','Şeffaflık':'Transparency','Dil':'Language',
   'Auto Follow doğrulanmış bir seçim bulamazsa manuel seçimin korunur.':'Auto Follow keeps your manual selection when the selected session cannot be verified.',
   'API fiyatları':'API prices','Güncelleniyor…':'Updating…','Güncel':'Up to date','Son kaydedilen fiyatlar':'Last saved prices','Başlangıç fiyatları':'Included prices',
   'USD, API eşdeğeri tahmindir; abonelik faturası değildir.':'USD is an API-equivalent estimate, not your subscription bill.',

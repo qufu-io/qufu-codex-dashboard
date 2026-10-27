@@ -3,10 +3,11 @@ test.beforeEach(async({page})=>{
  await page.addInitScript(()=>{
   const usage={input:1000,cache:800,write:0,output:200,reasoning:50,total:1200};
   const sessions=[{id:'test-main',title:'Test ana session',workspace:'C:\\Test\\Workspace',group:'Test Workspace',updated:100,tokens:1200},{id:'test-other',title:'İkinci session',workspace:'C:\\Test\\Other',group:'Other',updated:90,tokens:1800}];
-  let saved:any={};(window as any).__calls=[];
+  let saved:any=JSON.parse(localStorage.getItem('test-startup-settings')??'{}');(window as any).__calls=[];
   (window as any).__TAURI_INTERNALS__={metadata:{currentWindow:{label:'main'},currentWebview:{label:'main'}},invoke:async(cmd:string,args:any)=>{
    (window as any).__calls.push({cmd,args});
    if(cmd==='load_settings')return saved;
+   if(cmd==='window_preferences'&&args.height&&(window as any).__resizeNative){await (window as any).__resizeNative(args);return;}
    if(cmd==='save_settings'){saved=args.settings;(window as any).__saved=saved;return;}
 
    if(cmd==='snapshot')return {sessions,detail:args.selected?{thread:sessions.find(t=>t.id===args.selected),usage,lastUsage:{input:400,output:50,cache:300,write:0,reasoning:20,total:450},context:{used:450,capacity:1000,percent:45},contextCapacity:1000,lastUsd:0.00055,usd:0.00248,tpm:1200,model:'gpt-6.1-sol',status:'Tamamlandı',models:[{model:'gpt-6.1-sol',usage,usd:0.00248}],warnings:[],children:[],childUsage:{...usage,input:0,cache:0,output:0,total:0},childUsd:0,childrenComplete:true}:null,quota:{at:Math.floor(Date.now()/1000),stale:false,source:'Codex account/rateLimits/read',value:{plan_type:"pro",primary:{used_percent:42,window_minutes:300,token_estimate:{used:42000000,capacity:100000000,localTokens:39000000,approximate:true,intervals:294,resets:42,medianErrorPercent:20,p90ErrorPercent:71.2},resets_at:Math.floor(Date.now()/1000)+3600},secondary:{used_percent:68,window_minutes:10080,resets_at:Math.floor(Date.now()/1000)+86400}}},excluded:{internal:4},errors:[],at:100,follow:{id:null,reason:'Seçim doğrulanamadı'}};
@@ -379,4 +380,50 @@ test('whole-task usage distinguishes current and completed tasks while preservin
  expect(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight||document.documentElement.scrollWidth>innerWidth)).toBe(false);
  await page.locator('#detailsToggle').click();await expect(page.locator('.detail-facts')).toContainText('80 Used');
  await page.evaluate(()=>{(window as any).__taskStatus='completed';});await page.locator('#refresh').click();await expect(page.locator('.turn-state')).toContainText('Completed');await expect(page.locator('.detail-facts')).toContainText('130 Used');
+});
+
+
+test('startup fits the window without opening settings and retires compact preference',async({page})=>{
+ await page.exposeFunction('__resizeNative',async(size:{width:number;height:number})=>{await page.setViewportSize(size);});
+ for(const compact of [false,true]){
+  await page.evaluate(compact=>localStorage.setItem('test-startup-settings',JSON.stringify({schemaVersion:5,selected:'test-main',compact,language:'en',theme:'dark',opacity:0.55,topmost:false,autoFollow:false})),compact);
+  await page.setViewportSize({width:820,height:290});
+  await page.reload();
+  await expect(page.locator('#sessionTitle')).toContainText('Test ana session');
+  await expect.poll(()=>page.evaluate(()=>window.innerWidth===300&&window.innerHeight===Math.ceil(document.querySelector('#app')!.getBoundingClientRect().height)&&document.documentElement.scrollHeight<=window.innerHeight)).toBe(true);
+  const initial=page.viewportSize();
+  await page.setViewportSize({width:600,height:900});
+  await expect.poll(()=>page.viewportSize()).toEqual(initial);
+  await page.locator('#settingsToggle').click();
+  await expect(page.locator('#compact')).toHaveCount(0);
+  await expect(page.locator('#transparency')).toHaveValue('45');
+  await expect.poll(()=>page.viewportSize()?.width).toBe(371);
+  await page.locator('#settingsToggle').click();
+  await expect.poll(()=>page.viewportSize()).toEqual(initial);
+  expect(await page.evaluate(()=>(window as any).__saved.compact)).toBeUndefined();
+ }
+});
+
+
+test('public README screenshot uses illustrative data without personal information',async({page})=>{
+ await page.evaluate(()=>{
+  const base=(window as any).__TAURI_INTERNALS__.invoke;
+  (window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{
+   const value=await base(cmd,args);
+   if(cmd!=='snapshot')return value;
+   const usage={input:1240000,cache:980000,write:0,output:60000,reasoning:12000,total:1300000};
+   value.sessions=[{id:'example',title:'Dashboard',workspace:'C:\\Projects\\Example',group:'Example Workspace',updated:100,tokens:1300000}];
+   value.detail={...value.detail,thread:value.sessions[0],usage,rawTotal:1300000,used:320000,lastUsage:{input:24000,cache:18000,write:0,output:1600,reasoning:300,total:25600},lastUsd:0.0256,usd:1.48,tpm:2400,model:'example',status:'Tamamlandı',models:[],warnings:[],children:[],childUsage:null,childUsd:null,childrenComplete:true,turn:{id:'example-turn',status:'completed',usagePartial:false,used:7600,rawTotal:25600,durationMs:18000,effort:'medium'},context:{used:72000,capacity:128000,percent:52},contextCapacity:128000};
+   value.quota.value.primary.token_estimate=null;
+   value.quota.value.secondary.token_estimate=null;
+   return value;
+  };
+ });
+ await page.locator('#sessionTitle').click();
+ await page.locator('[data-id="test-main"]').click();
+ await fitWindow(page);
+ await expect(page.locator('#sessionTitle')).toHaveText('Example Workspace - Dashboard');
+ await expect(page.locator('#workspace')).toHaveText('C:\\Projects\\Example');
+ expect(await page.locator('#app').innerText()).not.toMatch(/alper|GenA|IOG|Users|Test ana/);
+ await page.locator('#app').screenshot({path:'artifacts/dashboard-public-1.0.2.png'});
 });

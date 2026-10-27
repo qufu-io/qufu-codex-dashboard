@@ -1,5 +1,11 @@
 # 1.0.2 — Task accounting and usage history
 
+## Same-version refresh / Aynı sürüm yenilemesi
+
+The refreshed 1.0.2 removes the Compact view setting and always fits the dashboard to its content on startup and after panel changes. Legacy appearance preferences migrate without losing theme, language, transparency or selected session. A new screenshot uses illustrative data only. Existing 1.0.2 users must download/reinstall manually; the updater intentionally offers only higher versions. The original source tag is preserved; the release notes identify the refreshed source commit and include its source archive.
+
+Yenilenen 1.0.2'de Compact view seçeneği kaldırıldı; pencere ilk açılışta ve panel değişimlerinde içeriğe uyar. Tema, dil, şeffaflık ve session seçimi korunur. Yeni ekran görüntüsü yalnızca örnek veri kullanır. Zaten 1.0.2 kullanıyorsan kurulumu yeniden indir; aynı sürüm otomatik güncelleme olarak sunulmaz. Eski kaynak etiketi korunur; yeni kaynak commit'i ve arşivi yayın notlarında belirtilir.
+
 ## English
 
 **Understand a whole task, not just its final response.** Last Request now follows the user-task turn and prices each response with its recorded model and service tier. Active, completed and interrupted states remain distinct; missing measurements stay unknown or partial.
