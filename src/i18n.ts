@@ -1,5 +1,20 @@
 export type Language = 'tr' | 'en';
 const en: Record<string, string> = {
+  'validated':'Validated','limited':'Limited accuracy','learning':'Learning','unstable':'Unstable','insufficient':'Insufficient evidence',
+  'estimated_capacity_change':'Estimated capacity change','within_model_error':'Within model error','weights_relearned':'Weights recalibrated','ratio_recalibration':'Weekly ratio recalibrated','usage_mix_changed':'Usage mix changed',
+  'Görevle eşleşen subagent tüketimi':'Subagent usage linked to this task','Ana görev toplamına eklenmez; eksik ilişkiler dışarıda kalır.':'Separate from the main task; missing links are excluded.',
+  'Görev tüketimi':'Task usage','Context geçmişi':'Context history','5 saatlik kapasite geçmişi':'5-hour capacity history','Haftalık kapasite geçmişi':'Weekly capacity history',
+  'Görev':'Task','Cache dışı input':'Uncached input','Referans kapasite':'Reference capacity','Varsayım':'Assumed','Resmi kullanım':'Official usage','Grafik ölçümü':'Chart metric',
+  'Görev sonunda ölçülen context':'Context measured at task end','Cache dışı input eşdeğeri':'Uncached input equivalent','N eşdeğeri':'N equivalent',
+  'Tahmini kapasite değişimi; backend kota değişimi olarak doğrulanamaz.':'Estimated capacity changes; backend quota changes cannot be isolated.',
+  'Yalnızca tamamlanan görevler; eksik ölçümler doldurulmaz.':'Completed tasks only; missing measurements stay missing.',
+  'Ayrıntı için bir noktaya veya çubuğa gel.':'Hover or focus a point or bar for details.',
+  'Geçmiş okunamadı. Pencereyi kapatıp tekrar dene.':'History unavailable. Close this window and try again.',
+  'Geçmiş yükleniyor…':'Loading history…','Güvenilir kapasite geçmişi için yeterli gözlem yok.':'Not enough observations for reliable capacity history.','Bu grafik için ölçüm yok.':'No measurements available for this chart.',
+  'Bir kullanıcı görevinin bütün yanıtları; Cache ve Reasoning tekrar eklenmez.':'All responses in one user task; Cache and Reasoning are not added twice.',
+  'Görev durumu':'Task status','Son tamamlanan görev':'Last completed task','Görev reasoning':'Task reasoning',
+  'in_progress':'In progress','completed':'Completed','interrupted':'Interrupted','incomplete':'Incomplete','failed':'Failed',
+  'Cache dışı input eşdeğeri; resmi token kotası değildir. Haftalık kapasite ortak ağırlıklar ve r oranından türetilir.':'Uncached input equivalent, not an official token quota. Weekly capacity uses shared weights and ratio r.',
   'Doğrulama örnekleri':'Validation samples','Yerel kayıtlar eksik; yerel tüketim doğrulanabilen alt toplamdır.':'Local records are incomplete; local usage is the verified subtotal.','Sınırlı doğruluk; ayrılmış pencerelerde ölçüldü':'Limited accuracy; measured on held-out windows',
   'Kısmi':'Partial','Kısmi fiyatlar':'Partial prices','Doğrulanabilen kısmi maliyet':'Verified partial cost',
   'Kuruluyor…':'Installing…','Kuruldu':'Installed','Başarısız':'Failed','Gözlemler':'Observations',
@@ -50,4 +65,5 @@ const en: Record<string, string> = {
   'Token sayacı sıfırlandı; son yanıt üzerinden devam edildi':'The usage counter reset; tracking continued from the last response.',
   'Bozuk JSONL kaydı atlandı':'An unreadable usage record was skipped.'
 };
-export function translate(value:string, language:Language):string { return language==='en' ? en[value]??value : value; }
+const statusTr:Record<string,string>={in_progress:'Çalışıyor',completed:'Tamamlandı',interrupted:'Kesildi',incomplete:'Yarım kaldı',failed:'Başarısız',validated:'Doğrulandı',limited:'Sınırlı doğruluk',learning:'Öğreniliyor',unstable:'Tutarsız',insufficient:'Yetersiz kanıt',estimated_capacity_change:'Tahmini kapasite değişimi',within_model_error:'Model hata sınırı içinde',weights_relearned:'Ağırlıklar yeniden öğrenildi',ratio_recalibration:'Haftalık oran yeniden öğrenildi',usage_mix_changed:'Kullanım dağılımı değişti'};
+export function translate(value:string, language:Language):string { return language==='en' ? en[value]??value : statusTr[value]??value; }

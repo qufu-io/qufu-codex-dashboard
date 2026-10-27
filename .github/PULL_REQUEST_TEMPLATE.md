@@ -9,7 +9,7 @@ Link the issue if one exists. / Varsa ilgili issue bağlantısını ekle.
 
 ## Verification / Doğrulama
 
-Explain the checks you actually performed; include a screenshot for visual documentation changes when useful.
+Explain the checks you actually performed; include sanitized screenshots for UI changes and regression coverage for measurement changes.
 Gerçekten yaptığın kontrolleri belirt; görsel dokümantasyon değişikliklerinde yararlıysa ekran görüntüsü ekle.
 
 - [ ] This PR is focused on the described change. / PR açıklanan değişiklikle sınırlı.

@@ -341,9 +341,14 @@ pub fn quote_in(book: &Catalog, model: &str, tier: &str, usage: &Usage, long: bo
     let Some((r, approximate)) = resolve(book, model, &normalize_tier(tier), long) else {
         return q;
     };
-    let mut total =
-        (usage.input - usage.cache - usage.write) as f64 * r.input + usage.output as f64 * r.output;
-    let mut priced = usage.input - usage.cache - usage.write + usage.output;
+    let input = if usage.cache_missing {
+        0
+    } else {
+        usage.input - usage.cache - usage.write
+    };
+    q.partial = usage.cache_missing;
+    let mut total = input as f64 * r.input + usage.output as f64 * r.output;
+    let mut priced = input + usage.output;
     for (count, rate) in [
         (usage.cache, r.cache),
         (usage.write - usage.write_long, r.write),

@@ -19,6 +19,10 @@ pub struct Usage {
     pub output: u64,
     pub reasoning: u64,
     pub total: u64,
+    #[serde(default)]
+    pub cache_missing: bool,
+    #[serde(default)]
+    pub reasoning_missing: bool,
 }
 impl Usage {
     pub fn from(v: &Value) -> Option<Self> {
@@ -27,6 +31,8 @@ impl Usage {
         Some(Self {
             input,
             output,
+            cache_missing: !v["cached_input_tokens"].is_u64(),
+            reasoning_missing: !v["reasoning_output_tokens"].is_u64(),
             cache: v["cached_input_tokens"].as_u64().unwrap_or(0),
             write: v["cache_write_input_tokens"].as_u64().unwrap_or(0),
             write_long: v["cache_write_12h_input_tokens"].as_u64().unwrap_or(0),
@@ -36,8 +42,18 @@ impl Usage {
                 .unwrap_or(input.checked_add(output)?),
         })
     }
-    fn delta(&self, prev: &Self) -> Self {
+    pub fn raw_total(&self) -> u64 {
+        self.input.saturating_add(self.output)
+    }
+    pub fn used(&self) -> u64 {
+        self.input
+            .saturating_sub(self.cache)
+            .saturating_add(self.output)
+    }
+    pub fn delta(&self, prev: &Self) -> Self {
         Self {
+            cache_missing: self.cache_missing || prev.cache_missing,
+            reasoning_missing: self.reasoning_missing || prev.reasoning_missing,
             input: self.input.saturating_sub(prev.input),
             cache: self.cache.saturating_sub(prev.cache),
             write: self.write.saturating_sub(prev.write),
@@ -48,6 +64,8 @@ impl Usage {
         }
     }
     pub fn add(&mut self, v: &Self) {
+        self.cache_missing |= v.cache_missing;
+        self.reasoning_missing |= v.reasoning_missing;
         self.input += v.input;
         self.cache += v.cache;
         self.write += v.write;
@@ -112,10 +130,14 @@ pub struct UsageSample {
     pub usage: Usage,
     pub model: String,
     pub tier: String,
+    pub turn_id: Option<String>,
+    pub root_turn_id: Option<String>,
+    pub effort: Option<String>,
 }
 #[derive(Clone, Default)]
 pub struct Rollout {
     pub offset: u64,
+    pub observed_bytes: u64,
     pub modified: Option<SystemTime>,
     pub usage: Option<Usage>,
     pub last_usage: Option<Usage>,
@@ -140,6 +162,12 @@ pub struct Rollout {
     pub seen: HashSet<String>,
     pub created: i64,
     pub record_mode: bool,
+    pub turns: crate::turns::Book,
+    pub cli_usage: Option<Usage>,
+    cli_pending: bool,
+    cli_last: Option<Usage>,
+    cli_fresh: bool,
+    cli_at: i64,
 }
 fn parent_id(value: &Value) -> Option<String> {
     if let Some(id) = value
@@ -169,6 +197,15 @@ fn price(model: &str, u: &Usage, tier: &str) -> Option<f64> {
 }
 impl Rollout {
     pub fn ingest(&mut self, e: Value, expected: &str) {
+        if e["method"] == "thread/tokenUsage/updated" {
+            let p = &e["params"];
+            if p["threadId"].as_str() != Some(expected) {
+                return;
+            }
+            let convert = |v: &Value| json!({"input_tokens":v["inputTokens"],"cached_input_tokens":v["cachedInputTokens"],"cache_write_input_tokens":v["cacheWriteInputTokens"],"output_tokens":v["outputTokens"],"reasoning_output_tokens":v["reasoningOutputTokens"],"total_tokens":v["totalTokens"]});
+            self.ingest(json!({"type":"event_msg","timestamp":e["timestamp"],"payload":{"type":"token_count","turn_id":p["turnId"],"info":{"total_token_usage":convert(&p["tokenUsage"]["total"]),"last_token_usage":convert(&p["tokenUsage"]["last"]),"model_context_window":p["tokenUsage"]["modelContextWindow"]}}}),expected);
+            return;
+        }
         let p = &e["payload"];
         let t = timestamp(&e["timestamp"]);
         let ty = e["type"].as_str().unwrap_or("");
@@ -183,6 +220,9 @@ impl Rollout {
         }
         if !self.id.is_empty() && self.id != expected {
             return;
+        }
+        if t >= self.created {
+            self.turns.observe(&e, expected, self.context());
         }
         if ty == "compacted" && t >= self.created {
             self.context_used = None;
@@ -207,12 +247,18 @@ impl Rollout {
         }
         if ty == "event_msg" {
             if p["type"] == "thread_settings_applied" {
+                if let Some(model) = p.pointer("/thread_settings/model").and_then(Value::as_str) {
+                    if self.model != model {
+                        self.context_used = None;
+                    }
+                    self.model = model.into();
+                }
                 if let Some(tier) = p.pointer("/thread_settings/service_tier") {
                     self.tier = tier.as_str().unwrap_or("").into();
                 }
             }
             match p["type"].as_str().unwrap_or("") {
-                "task_started" => {
+                "task_started" | "turn_started" => {
                     self.status = "Çalışıyor".into();
                     if t >= self.created {
                         let capacity = p["model_context_window"].as_u64().filter(|v| *v > 0);
@@ -222,15 +268,33 @@ impl Rollout {
                         self.context_capacity = capacity;
                     }
                 }
-                "task_complete" | "turn_complete" => self.status = "Tamamlandı".into(),
+                "task_complete" | "turn_complete" | "turn_completed" => {
+                    self.status = "Tamamlandı".into()
+                }
                 "turn_aborted" => self.status = "Kesildi".into(),
                 _ => {}
             }
             if p["type"] == "token_count" && t >= self.created && p["info"].is_object() {
+                if let Some(usage) = Usage::from(&p["info"]["total_token_usage"]) {
+                    let changed = self.cli_usage.as_ref() != Some(&usage);
+                    if self.cli_pending {
+                        self.cli_fresh = false;
+                    } else if changed {
+                        self.cli_fresh = true;
+                    }
+                    if changed {
+                        self.cli_at = t;
+                    }
+                    self.cli_usage = Some(usage);
+                    self.cli_pending = false;
+                }
+                self.cli_last = Usage::from(&p["info"]["last_token_usage"]);
                 self.context_capacity = p["info"]["model_context_window"]
                     .as_u64()
                     .filter(|v| *v > 0);
-                self.context_used = p["info"]["last_token_usage"]["total_tokens"].as_u64();
+                if let Some(used) = p["info"]["last_token_usage"]["total_tokens"].as_u64() {
+                    self.context_used = Some(used);
+                }
                 if !self.record_mode {
                     self.last_usage = Usage::from(&p["info"]["last_token_usage"]);
                     self.last_model = self.model.clone();
@@ -245,7 +309,7 @@ impl Rollout {
             {
                 self.quota = Some((t, p["rate_limits"].clone()));
                 if t >= self.created {
-                    self.quota_history.push((t, json!({"primary":p["rate_limits"]["primary"],"secondary":p["rate_limits"]["secondary"],"plan_type":p["rate_limits"]["plan_type"]})));
+                    self.quota_history.push((t, json!({"primary":p["rate_limits"]["primary"],"secondary":p["rate_limits"]["secondary"],"plan_type":p["rate_limits"]["plan_type"],"limit_id":p["rate_limits"]["limit_id"]})));
                 }
             }
         }
@@ -253,6 +317,9 @@ impl Rollout {
             return;
         }
         let is_record = ty == "token_usage_record";
+        let transition = is_record && !self.record_mode;
+        let prior_last = self.last_usage.clone();
+        let prior_at = self.last_at;
         let (current, raw) = if is_record {
             if p["thread_id"].as_str() != Some(expected) {
                 return;
@@ -270,33 +337,42 @@ impl Rollout {
             if !self.seen.insert(response_key) {
                 return;
             }
+            let raw = Usage::from(&p["usage"]);
+            let matched = raw
+                .as_ref()
+                .zip(self.cli_last.as_ref())
+                .is_some_and(|(a, b)| a.input == b.input && a.output == b.output);
+            self.cli_pending = !(self.cli_fresh
+                && (0..=5).contains(&(t - self.cli_at))
+                && (matched || raw.is_none()));
+            self.cli_fresh = false;
             if !self.record_mode {
                 self.record_mode = true;
-                self.last_usage = None;
-                self.usage = None;
-                self.previous = Usage::default();
-                self.models.clear();
-                self.events.clear();
-                self.window_samples.clear();
-                self.warnings.clear();
                 if let (Some(cumulative), Some(response)) = (
                     Usage::from(&p["thread_token_usage"]),
                     Usage::from(&p["usage"]),
                 ) {
                     let baseline = cumulative.delta(&response);
-                    if baseline.total > 0 {
-                        self.usage = Some(baseline.clone());
+                    let prior = self.usage.clone().unwrap_or_default();
+                    if baseline.total > prior.total {
+                        let missing = baseline.delta(&prior);
+                        self.usage.get_or_insert_with(Usage::default).add(&missing);
                         self.models.insert(
-                            "Geçmiş / model verisi yok".into(),
+                            "Earlier usage / model unavailable".into(),
                             ModelUsage {
-                                model: "Geçmiş / model verisi yok".into(),
-                                usage: baseline,
-                                usd: None,
+                                model: "Earlier usage / model unavailable".into(),
+                                usage: missing,
                                 unpriced: true,
                                 ..Default::default()
                             },
                         );
-                        self.warnings.insert("Geçmiş toplam mevcut; eski yanıtların model/tarife bilgisi eksik olduğundan tam USD hesaplanamıyor".into());
+                    }
+                    if let Some(pos) = self
+                        .window_samples
+                        .iter()
+                        .rposition(|s| s.at == t && s.usage == response)
+                    {
+                        self.window_samples.remove(pos);
                     }
                 }
             }
@@ -321,7 +397,7 @@ impl Rollout {
             .unwrap_or(&self.model)
             .to_owned();
         let event_tier = p["service_tier"].as_str().unwrap_or(&self.tier).to_owned();
-        if is_record && t >= self.last_at {
+        if is_record && (t >= self.last_at || t == 0) {
             self.last_at = t;
             self.last_usage = raw.clone().map(|mut u| {
                 if self.cache_long {
@@ -331,7 +407,6 @@ impl Rollout {
             });
             self.last_model = event_model.clone();
             self.last_tier = event_tier.clone();
-            self.context_used = raw.as_ref().map(|u| u.total);
         }
         let cur = if is_record {
             current.unwrap_or_default()
@@ -348,6 +423,12 @@ impl Rollout {
         let long_context = raw.as_ref().is_some_and(|u| u.input > 272_000);
         let had_previous = self.usage.is_some();
         let raw_known = raw.clone();
+        let overlap = transition
+            && self.previous.total > 0
+            && ((cur == self.previous)
+                || (raw.as_ref() == prior_last.as_ref()
+                    && t == prior_at
+                    && self.previous.total >= cur.total));
         let mut d = if is_record {
             let Some(u) = raw else {
                 self.warnings.insert("Yanıt token verisi eksik".into());
@@ -383,11 +464,18 @@ impl Rollout {
             d.write_long = d.write;
         }
         self.previous = cur;
-        self.usage.get_or_insert_with(Usage::default).add(&d);
+        if !overlap {
+            self.usage.get_or_insert_with(Usage::default).add(&d);
+        }
         if d.total == 0 {
             return;
         }
-        self.events.push((t, d.total));
+        if !overlap {
+            self.events.push((t, d.total));
+        }
+        if !is_record {
+            self.last_at = t;
+        }
         if (is_record || had_previous || raw_known.is_some()) && t > 0 {
             self.window_samples.push(UsageSample {
                 id: if is_record {
@@ -409,7 +497,16 @@ impl Rollout {
                 usage: d.clone(),
                 model: event_model.clone(),
                 tier: event_tier.clone(),
+                turn_id: p["turn_id"]
+                    .as_str()
+                    .map(str::to_owned)
+                    .or_else(|| self.turns.active.clone()),
+                root_turn_id: p["root_turn_id"].as_str().map(str::to_owned),
+                effort: self.turns.latest().and_then(|t| t.effort.clone()),
             });
+        }
+        if overlap {
+            return;
         }
         let key = format!(
             "{}{}",
@@ -451,6 +548,7 @@ impl Rollout {
         f.seek(SeekFrom::Start(self.offset))
             .map_err(|e| e.to_string())?;
         let mut reader = BufReader::new(f);
+        self.observed_bytes = self.offset;
         let mut line = Vec::new();
         loop {
             line.clear();
@@ -460,6 +558,7 @@ impl Rollout {
             if n == 0 {
                 break;
             }
+            self.observed_bytes = self.offset + n as u64;
             if !line.ends_with(b"\n") {
                 if let Ok(event) = serde_json::from_slice(&line) {
                     self.ingest(event, id);
@@ -477,6 +576,10 @@ impl Rollout {
                 b"\"thread_settings_applied\"",
                 b"\"task_complete\"",
                 b"\"turn_aborted\"",
+                b"\"turn_started\"",
+                b"\"turn_complete\"",
+                b"\"turn_completed\"",
+                b"\"thread/tokenUsage/updated\"",
             ]
             .iter()
             .any(|s| line.windows(s.len()).any(|w| w == *s))
@@ -496,10 +599,11 @@ impl Rollout {
         Ok(())
     }
     pub(crate) fn cursor(&self) -> Value {
-        json!({"offset":self.offset,"previous":self.previous,"created":self.created,"id":self.id,"model":self.model,"tier":self.tier,"recordMode":self.record_mode,"cacheLong":self.cache_long})
+        json!({"offset":self.offset,"previous":self.previous,"created":self.created,"id":self.id,"model":self.model,"tier":self.tier,"recordMode":self.record_mode,"cacheLong":self.cache_long,"turns":self.turns,"cursorVersion":2})
     }
     pub(crate) fn restore_cursor(state: &Value) -> Self {
         Self {
+            turns: serde_json::from_value(state["turns"].clone()).unwrap_or_default(),
             offset: state["offset"].as_u64().unwrap_or(0),
             previous: serde_json::from_value(state["previous"].clone()).unwrap_or_default(),
             created: state["created"].as_i64().unwrap_or(0),
@@ -510,6 +614,13 @@ impl Rollout {
             cache_long: state["cacheLong"].as_bool().unwrap_or(false),
             usage: Some(Usage::default()),
             ..Default::default()
+        }
+    }
+    pub fn displayed_usage(&self) -> Option<&Usage> {
+        if !self.cli_pending {
+            self.cli_usage.as_ref().or(self.usage.as_ref())
+        } else {
+            self.usage.as_ref()
         }
     }
     pub fn last_usd(&self) -> Option<f64> {
@@ -524,15 +635,17 @@ impl Rollout {
     pub fn context(&self) -> Option<Value> {
         let capacity = self.context_capacity.filter(|v| *v > 0)?;
         let used = self.context_used?;
-        Some(
-            json!({"used":used,"capacity":capacity,"percent":(used as f64 / capacity as f64 * 100.).min(100.)}),
-        )
+        Some(crate::turns::context(used, capacity))
     }
     pub fn cost_quote(&self) -> crate::pricing::Quote {
         if self.usage.is_none() {
             return crate::pricing::Quote::default();
         }
-        crate::pricing::Quote::combine(self.models.values().map(ModelUsage::quote))
+        let mut q = crate::pricing::Quote::combine(self.models.values().map(ModelUsage::quote));
+        q.partial |= self
+            .displayed_usage()
+            .is_some_and(|u| u.raw_total() != q.total_tokens);
+        q
     }
     pub fn usd(&self) -> Option<f64> {
         self.cost_quote().usd
@@ -843,6 +956,15 @@ impl Reader {
                     }
                 }
             }
+            let root_turn = self
+                .cache
+                .get(&t.id)
+                .and_then(|r| r.turns.latest())
+                .map(|t| t.root_turn_id.as_deref().unwrap_or(&t.id).to_owned());
+            let mut task_child_usage: Option<Usage> = None;
+            let mut task_child_quotes = Vec::new();
+            let mut task_child_count = 0;
+            let mut task_children_unknown = 0;
             let mut children = vec![];
             let mut child_usage = Usage::default();
             let mut quotes = Vec::new();
@@ -858,6 +980,32 @@ impl Reader {
                 } else {
                     complete = false;
                 }
+                let linked: Vec<_> = r
+                    .map(|r| {
+                        r.turns
+                            .turns
+                            .values()
+                            .filter(|turn| {
+                                turn.root_turn_id
+                                    .as_ref()
+                                    .zip(root_turn.as_ref())
+                                    .is_some_and(|(a, b)| a == b)
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if linked.is_empty() {
+                    task_children_unknown += 1;
+                }
+                for turn in linked {
+                    if let Some(u) = &turn.usage {
+                        task_child_usage.get_or_insert_with(Usage::default).add(u);
+                        task_child_count += 1;
+                    } else {
+                        task_children_unknown += 1;
+                    }
+                    task_child_quotes.push(turn.quote());
+                }
                 let q = r.map(Rollout::cost_quote).unwrap_or_default();
                 quotes.push(q.clone());
                 children.push(json!({"id":c.id,"parentId":c.parent,"title":c.title,"usage":usage,"usd":q.usd,"usdApproximate":q.approximate,"usdPartial":q.partial,"status":r.map(|r|r.status.as_str()).unwrap_or("Kayıt okunamıyor"),"internal":c.source.contains("guardian")}));
@@ -868,7 +1016,9 @@ impl Reader {
                 child_quote.usd = None;
             }
             if let Some(r) = self.cache.get(&t.id) {
-                detail = json!({"thread":t,"usage":r.usage,"lastUsage":r.last_usage,"lastUsd":r.last_usd(),"context":r.context(),"contextCapacity":r.context_capacity,"usd":r.usd(),"usdApproximate":r.cost_quote().approximate,"usdPartial":r.cost_quote().partial,"lastUsdApproximate":r.last_quote().approximate,"lastUsdPartial":r.last_quote().partial,"tpm":r.tpm(now),"model":r.model,"usageSource":if r.record_mode{"response records"}else{"legacy cumulative counters"},"status":if r.status.is_empty(){"Bilinmiyor"}else{&r.status},"models":r.models.values().map(ModelUsage::repriced).collect::<Vec<_>>(),"warnings":r.warnings,"children":children,"childUsage":if known>0 || children.is_empty(){Some(child_usage)}else{None},"childUsd":child_quote.usd,"childUsdApproximate":child_quote.approximate,"childUsdPartial":child_quote.partial,"childrenComplete":complete});
+                let turn = r.turns.latest();
+                let turn_quote = turn.map(crate::turns::Turn::quote).unwrap_or_default();
+                detail = json!({"turnChildUsage":task_child_usage,"turnChildUsd":if task_child_count>0 {crate::pricing::Quote::combine(task_child_quotes).usd}else {None},"turnChildCount":task_child_count,"turnChildrenPartial":task_children_unknown>0,"turn":turn.map(crate::turns::Turn::value),"activeTurn":r.turns.active,"lastCompletedTurn":r.turns.latest_completed().map(crate::turns::Turn::value),"used":r.displayed_usage().filter(|u|!u.cache_missing).map(Usage::used),"rawTotal":r.displayed_usage().map(Usage::raw_total),"cliUsage":r.cli_usage,"responseUsage":r.usage,"rolloutBytes":r.observed_bytes,"thread":t,"usage":r.displayed_usage(),"lastUsage":turn.and_then(|t|t.usage.as_ref()),"lastUsd":turn_quote.usd,"context":r.context(),"contextCapacity":r.context_capacity,"usd":r.usd(),"usdApproximate":r.cost_quote().approximate,"usdPartial":r.cost_quote().partial,"lastUsdApproximate":turn_quote.approximate,"lastUsdPartial":turn_quote.partial,"tpm":r.tpm(now),"model":r.model,"usageSource":if r.cli_usage.is_some() && !r.cli_pending {"Codex token_count.info.total_token_usage"}else if r.record_mode{"response records (CLI snapshot pending)"}else{"legacy cumulative counters"},"status":if r.status.is_empty(){"Bilinmiyor"}else{&r.status},"models":r.models.values().map(ModelUsage::repriced).collect::<Vec<_>>(),"warnings":r.warnings,"children":children,"childUsage":if known>0 || children.is_empty(){Some(child_usage)}else{None},"childUsd":child_quote.usd,"childUsdApproximate":child_quote.approximate,"childUsdPartial":child_quote.partial,"childrenComplete":complete});
             }
         }
         let mut quota = self
@@ -982,7 +1132,7 @@ mod tests {
         assert_eq!(r.usage.unwrap().total, 132);
     }
     fn record(id: &str, response: &str, total: u64, raw: u64) -> Value {
-        json!({"type":"token_usage_record","timestamp":"2026-10-18T12:00:00Z","payload":{"thread_id":id,"response_id":response,"thread_token_usage":{"input_tokens":total,"output_tokens":0},"usage":{"input_tokens":raw,"output_tokens":0}}})
+        json!({"type":"token_usage_record","timestamp":"2026-10-18T12:00:00Z","payload":{"thread_id":id,"response_id":response,"thread_token_usage":{"input_tokens":total,"output_tokens":0},"usage":{"input_tokens":raw,"cached_input_tokens":0,"output_tokens":0}}})
     }
     #[test]
     fn separate_counter_streams_and_duplicate_responses() {
@@ -1076,6 +1226,7 @@ mod tests {
         r.read(&path, "a").unwrap();
         assert_eq!(r.usage.as_ref().unwrap().total, 10);
         assert_eq!(r.offset, 0);
+        assert_eq!(r.observed_bytes, line.len() as u64);
         fs::write(&path, format!("{line}\n")).unwrap();
         r.read(&path, "a").unwrap();
         assert_eq!(r.usage.unwrap().total, 10);
@@ -1104,11 +1255,11 @@ mod tests {
         e["payload"]["info"]["last_token_usage"] = json!({"input_tokens":120,"cached_input_tokens":80,"output_tokens":30,"total_tokens":150});
         e["payload"]["info"]["model_context_window"] = json!(1000);
         r.ingest(e, "a");
-        assert_eq!(r.context().unwrap()["percent"], 15.);
+        assert_eq!(r.context().unwrap()["percent"], 100.);
         assert_eq!(r.last_usage.as_ref().unwrap().total, 100);
         r.ingest(record("a", "r2", 5200, 200), "a");
-        assert_eq!(r.context().unwrap()["used"], 200);
-        assert_eq!(r.context().unwrap()["percent"], 20.);
+        assert_eq!(r.context().unwrap()["used"], 150);
+        assert_eq!(r.context().unwrap()["percent"], 100.);
         r.ingest(json!({"type":"compacted"}), "a");
         assert!(r.context().is_none());
         assert_eq!(r.last_usage.as_ref().unwrap().total, 200);
@@ -1154,6 +1305,67 @@ mod tests {
 #[cfg(test)]
 mod regression_tests {
     use super::*;
+    #[test]
+    fn legacy_transition_preserves_history_and_does_not_inflate_rate() {
+        let at = "2026-10-27T12:00:00Z";
+        let mut r = Rollout::default();
+        r.ingest(json!({"type":"event_msg","timestamp":at,"payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1100,"cached_input_tokens":800,"output_tokens":0},"last_token_usage":{"input_tokens":100,"cached_input_tokens":80,"output_tokens":0}}}}),"a");
+        r.ingest(json!({"type":"token_usage_record","timestamp":at,"payload":{"thread_id":"a","turn_id":"t","response_id":"r","usage":{"input_tokens":100,"cached_input_tokens":80,"output_tokens":0},"thread_token_usage":{"input_tokens":100,"cached_input_tokens":80,"output_tokens":0},"turn_token_usage":{"input_tokens":100,"cached_input_tokens":80,"output_tokens":0}}}),"a");
+        assert_eq!(r.usage.as_ref().unwrap().input, 1100);
+        assert_eq!(r.tpm(timestamp(&json!(at))), Some(100));
+        assert_eq!(r.window_samples.len(), 1);
+        r.ingest(json!({"type":"event_msg","timestamp":at,"payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1100,"cached_input_tokens":800,"output_tokens":0}}}}),"a");
+        assert_eq!(r.displayed_usage().unwrap().input, 1100);
+        assert_eq!(r.displayed_usage().unwrap().used(), 300);
+    }
+    #[test]
+    fn missing_cache_is_not_a_zero_used_measurement_or_a_fully_priced_input() {
+        let usage = Usage::from(&json!({"input_tokens":100,"output_tokens":10})).unwrap();
+        assert!(usage.cache_missing && usage.reasoning_missing);
+        let q = crate::pricing::quote("gpt-6.1-sol", "standard", &usage, false);
+        assert!(q.partial);
+        assert_eq!(q.priced_tokens, 10);
+        assert!((q.usd.unwrap() - 0.0001).abs() < 1e-10);
+    }
+    #[test]
+    fn official_app_server_notification_matches_rollout_measurements() {
+        let mut r = Rollout::default();
+        let u = json!({"inputTokens":1000,"cachedInputTokens":800,"outputTokens":200,"reasoningOutputTokens":100,"totalTokens":1200});
+        let mut e = json!({"method":"thread/tokenUsage/updated","timestamp":"2026-10-27T12:00:00Z","params":{"threadId":"a","turnId":"t","tokenUsage":{"total":u,"last":u,"modelContextWindow":128000}}});
+        r.ingest(e.clone(), "a");
+        assert_eq!(r.displayed_usage().unwrap().used(), 400);
+        assert_eq!(r.displayed_usage().unwrap().input, 1000);
+        assert_eq!(r.context().unwrap()["used"], 1200);
+        assert_eq!(r.context().unwrap()["percent"], 0.);
+        e["params"]["threadId"] = json!("other");
+        e["params"]["tokenUsage"]["total"]["inputTokens"] = json!(9000);
+        r.ingest(e, "a");
+        assert_eq!(r.displayed_usage().unwrap().input, 1000);
+    }
+    #[test]
+    fn cli_snapshot_is_authoritative_in_both_response_event_orders() {
+        let stamp = "2026-10-27T12:00:00Z";
+        let usage = |i| json!({"input_tokens":i,"cached_input_tokens":0,"output_tokens":0});
+        let count = |total| json!({"type":"event_msg","timestamp":stamp,"payload":{"type":"token_count","info":{"total_token_usage":usage(total),"last_token_usage":usage(100)}}});
+        let response = |id, total| json!({"type":"token_usage_record","timestamp":stamp,"payload":{"thread_id":"a","response_id":id,"usage":usage(100),"thread_token_usage":usage(total)}});
+        let mut r = Rollout::default();
+        r.ingest(count(1000), "a");
+        r.ingest(response("one", 100), "a");
+        assert!(!r.cli_pending);
+        assert_eq!(r.displayed_usage().unwrap().input, 1000);
+        r.ingest(count(200), "a");
+        r.ingest(response("two", 200), "a");
+        assert!(!r.cli_pending);
+        assert_eq!(r.displayed_usage().unwrap().input, 200);
+        assert_eq!(r.usage.as_ref().unwrap().input, 1100);
+        r.ingest(response("three", 300), "a");
+        assert!(r.cli_pending);
+        r.ingest(count(300), "a");
+        assert!(!r.cli_pending);
+        assert_eq!(r.displayed_usage().unwrap().input, 300);
+        r.ingest(response("four", 400), "a");
+        assert!(r.cli_pending);
+    }
     use rusqlite::params;
     fn temp() -> PathBuf {
         let p = std::env::temp_dir().join(format!(
@@ -1167,7 +1379,7 @@ mod regression_tests {
         p
     }
     fn record(id: &str, response: &str, tokens: u64) -> Value {
-        json!({"type":"token_usage_record","timestamp":"2026-10-26T12:00:00Z","payload":{"thread_id":id,"response_id":response,"usage":{"input_tokens":tokens,"cached_input_tokens":0,"output_tokens":0},"thread_token_usage":{"input_tokens":tokens,"output_tokens":0}}})
+        json!({"type":"token_usage_record","timestamp":"2026-10-26T12:00:00Z","payload":{"thread_id":id,"response_id":response,"usage":{"input_tokens":tokens,"cached_input_tokens":0,"output_tokens":0},"thread_token_usage":{"input_tokens":tokens,"cached_input_tokens":0,"output_tokens":0}}})
     }
     #[test]
     fn nested_archived_and_partial_children_keep_the_known_subtotal_once() {
@@ -1189,7 +1401,7 @@ mod regression_tests {
             if id != "missing" {
                 let mut lines=vec![json!({"type":"session_meta","payload":{"id":id,"source":if id=="b"{json!({"subagent":{"other":{"parent_thread_id":"a"}}})}else{json!(source)}}}).to_string(),json!({"type":"turn_context","payload":{"model":"gpt-6.1-sol"}}).to_string()];
                 if id == "a" {
-                    lines.push(json!({"type":"event_msg","timestamp":"2026-10-26T12:00:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":20,"output_tokens":0},"last_token_usage":{"input_tokens":20,"output_tokens":0}}}}).to_string());
+                    lines.push(json!({"type":"event_msg","timestamp":"2026-10-26T12:00:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":20,"cached_input_tokens":0,"output_tokens":0},"last_token_usage":{"input_tokens":20,"cached_input_tokens":0,"output_tokens":0}}}}).to_string());
                 } else {
                     lines.push(
                         record(id, &format!("r-{id}"), if id == "b" { 30 } else { 10 }).to_string(),

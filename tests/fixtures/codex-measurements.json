@@ -1,0 +1,307 @@
+{
+  "source": "https://github.com/openai/codex",
+  "commit": "b6ad8ea1fcd5562a7d3003887930be7d84824307",
+  "method": "compiled unmodified official TokenUsage methods",
+  "cases": [
+    {
+      "capacity": 1000,
+      "contextTokens": 0,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 11999,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 12000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 13000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 58000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 70000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 127999,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 128000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 200000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000,
+      "contextTokens": 600000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 0,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 11999,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 12000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 13000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 58000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 70000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 127999,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 128000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 200000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 12000,
+      "contextTokens": 600000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 0,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 11999,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 12000,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 13000,
+      "remainingPercent": 99,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 58000,
+      "remainingPercent": 60,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 70000,
+      "remainingPercent": 50,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 127999,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 128000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 200000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 128000,
+      "contextTokens": 600000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 0,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 11999,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 12000,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 13000,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 58000,
+      "remainingPercent": 82,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 70000,
+      "remainingPercent": 78,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 127999,
+      "remainingPercent": 55,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 128000,
+      "remainingPercent": 55,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 200000,
+      "remainingPercent": 28,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 272000,
+      "contextTokens": 600000,
+      "remainingPercent": 0,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 0,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 11999,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 12000,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 13000,
+      "remainingPercent": 100,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 58000,
+      "remainingPercent": 95,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 70000,
+      "remainingPercent": 94,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 127999,
+      "remainingPercent": 88,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 128000,
+      "remainingPercent": 88,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 200000,
+      "remainingPercent": 81,
+      "cliUsed": 400
+    },
+    {
+      "capacity": 1000000,
+      "contextTokens": 600000,
+      "remainingPercent": 40,
+      "cliUsed": 400
+    }
+  ]
+}

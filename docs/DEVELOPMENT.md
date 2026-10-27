@@ -41,6 +41,8 @@ On Linux CI use `npx playwright install --with-deps chromium` to install browser
 npm run tauri -- build --no-bundle
 ```
 
+On Windows, `powershell -ExecutionPolicy Bypass -File scripts/build-test.ps1` also copies a test executable to ignored artifacts. Do not substitute plain `cargo build --release`: it does not enable Tauri’s production asset protocol.
+
 The executable is under `src-tauri/target/release/`. A signing key is not required. Official installers/updater artifacts use the separate [release process](RELEASE.md); the maintainer's private key is never part of the repository. Forks must configure their own identity, update endpoint and signing public key in `src-tauri/tauri.conf.json` before distributing update-enabled packages. The shipped public verification key is not a secret.
 
 ## Layout
@@ -49,6 +51,8 @@ The executable is under `src-tauri/target/release/`. A signing key is not requir
 - `src-tauri/src/data.rs`: read-only metadata/usage discovery and session aggregation.
 - `src-tauri/src/pricing.rs`: pricing lookup, cache and cost calculations.
 - `src-tauri/src/limits.rs`, `quota.rs`: account snapshots and gated approximate token calibration.
+- `src-tauri/src/turns.rs`: task lifecycle, cumulative snapshots and measured end-context.
+- `src/history.ts`: small history windows and gap-preserving charts.
 - `src-tauri/src/updates.rs`: signed updater checks/install actions.
 - `tests/`: synthetic UI regression tests; Rust unit tests live beside Rust implementation.
 

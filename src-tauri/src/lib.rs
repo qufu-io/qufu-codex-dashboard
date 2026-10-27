@@ -2,6 +2,7 @@ pub mod data;
 pub mod limits;
 pub mod pricing;
 pub mod quota;
+mod turns;
 mod updates;
 use serde_json::{json, Value};
 use std::sync::Mutex;
@@ -91,6 +92,71 @@ fn attach_estimates(value: &mut Value, estimates: &Value) {
             value["quota"]["value"][key]["token_estimate"] = estimates[key].clone();
         }
     }
+}
+#[tauri::command]
+async fn history(
+    estimator: State<'_, Mutex<limits::Estimator>>,
+    metric: String,
+    selected: Option<String>,
+) -> Result<Value, String> {
+    estimator
+        .lock()
+        .map_err(|e| e.to_string())?
+        .history(&metric, selected.as_deref())
+}
+#[tauri::command]
+async fn open_history_window(
+    app: tauri::AppHandle,
+    metric: String,
+    selected: Option<String>,
+    language: String,
+    theme: String,
+) -> Result<(), String> {
+    if !["turns", "context", "five", "week"].contains(&metric.as_str()) {
+        return Err("Unknown history metric".into());
+    }
+    let config = json!({"metric":metric,"selected":selected,"language":if language=="tr" {"tr"}else {"en"},"theme":if theme=="light" {"light"}else {"dark"}});
+    if let Some(window) = app.get_webview_window("history") {
+        window
+            .eval(format!(
+                "window.dispatchEvent(new CustomEvent('history-config',{{detail:{config}}}));"
+            ))
+            .map_err(|e| e.to_string())?;
+        return window.set_focus().map_err(|e| e.to_string());
+    }
+    let mut size = (480., 300.);
+    if let Some(main) = app.get_webview_window("main") {
+        if let Ok(Some(monitor)) = main.current_monitor() {
+            size.0 = 480f64
+                .min(monitor.size().width as f64 / monitor.scale_factor() - 32.)
+                .max(280.);
+            size.1 = 300f64
+                .min(monitor.size().height as f64 / monitor.scale_factor() - 64.)
+                .max(220.);
+        }
+    }
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        "history",
+        tauri::WebviewUrl::App("index.html?history=1".into()),
+    )
+    .title("Qufu — History")
+    .inner_size(size.0, size.1)
+    .min_inner_size(280., 220.)
+    .center()
+    .decorations(false)
+    .skip_taskbar(true)
+    .initialization_script(format!("window.__QUFU_HISTORY__={config};"))
+    .build()
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+#[tauri::command]
+fn close_history(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "history" {
+        return Err("Not a history window".into());
+    }
+    window.close().map_err(|e| e.to_string())
 }
 fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     app.path()
@@ -236,6 +302,9 @@ pub fn run() {
         .manage(Appearance::default())
         .invoke_handler(tauri::generate_handler![
             snapshot,
+            history,
+            open_history_window,
+            close_history,
             load_settings,
             save_settings,
             opacity,
@@ -278,6 +347,12 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|w, event| {
+            if w.label() == "history" {
+                if matches!(event, tauri::WindowEvent::Destroyed) {
+                    show_main(w.app_handle());
+                }
+                return;
+            }
             if matches!(event, tauri::WindowEvent::Focused(true)) {
                 if let Some(window) = w.app_handle().get_webview_window(w.label()) {
                     restore_opacity(&window);

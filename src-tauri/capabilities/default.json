@@ -1,12 +1,14 @@
 {
   "identifier": "main",
   "windows": [
-    "main"
+    "main",
+    "history"
   ],
   "permissions": [
     "core:default",
     "core:window:allow-set-size",
     "core:window:allow-set-always-on-top",
-    "core:window:allow-hide"
+    "core:window:allow-hide",
+    "core:window:allow-start-dragging"
   ]
 }
