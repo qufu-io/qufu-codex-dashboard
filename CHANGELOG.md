@@ -2,6 +2,15 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
+## 1.0.3 — 2026-10-28
+
+- Learn five-hour and weekly N/C/O quota weights independently; remove the weekly conversion ratio and shared coefficients.
+- Preserve historical fits and distinguish the previous shared method from independent calibration in history.
+- Keep Version, Check for updates and the Qufu/author footer visible with Settings closed.
+- Retain automatic window sizing, existing preferences and signed Windows/Linux updates.
+
+See [bilingual release notes](docs/CHANGES-1.0.3.md).
+
 ## 1.0.2 — 2026-10-27
 
 Same-version refresh: removed the Compact view setting; fixed startup and panel sizing, migrated legacy settings without losing other preferences, and replaced the README image with a privacy-safe illustrative screenshot. Existing 1.0.2 installations need a manual reinstall to receive this refresh; the version and original source tag remain unchanged.

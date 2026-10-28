@@ -14,7 +14,7 @@ const en: Record<string, string> = {
   'Bir kullanıcı görevinin bütün yanıtları; Cache ve Reasoning tekrar eklenmez.':'All responses in one user task; Cache and Reasoning are not added twice.',
   'Görev durumu':'Task status','Son tamamlanan görev':'Last completed task','Görev reasoning':'Task reasoning',
   'in_progress':'In progress','completed':'Completed','interrupted':'Interrupted','incomplete':'Incomplete','failed':'Failed',
-  'Cache dışı input eşdeğeri; resmi token kotası değildir. Haftalık kapasite ortak ağırlıklar ve r oranından türetilir.':'Uncached input equivalent, not an official token quota. Weekly capacity uses shared weights and ratio r.',
+  'Cache dışı input eşdeğeri; resmi token kotası değildir. Her pencere kendi limit gözlemlerinden bağımsız öğrenir.':'Uncached input equivalent; not an official token quota. Each window learns independently from its own limit observations.',
   'Doğrulama örnekleri':'Validation samples','Yerel kayıtlar eksik; yerel tüketim doğrulanabilen alt toplamdır.':'Local records are incomplete; local usage is the verified subtotal.','Sınırlı doğruluk; ayrılmış pencerelerde ölçüldü':'Limited accuracy; measured on held-out windows',
   'Kısmi':'Partial','Kısmi fiyatlar':'Partial prices','Doğrulanabilen kısmi maliyet':'Verified partial cost',
   'Kuruluyor…':'Installing…','Kuruldu':'Installed','Başarısız':'Failed','Gözlemler':'Observations',
@@ -24,7 +24,8 @@ const en: Record<string, string> = {
   'Güvenilir kalibrasyon için yeterli yerel veri yok.':'Insufficient local data for reliable calibration.',
 
   'Son güncelleme':'Last updated','Limitler güncel olmayabilir':'Limits may be out of date','Az önce':'Just now','Hesap limit verisi bekleniyor':'Waiting for account limit data',
-  'Güncellemeler':'Updates','Güncellemeleri kontrol et':'Check for updates','Kontrol ediliyor…':'Checking…','İndir ve kur':'Download and install','İndiriliyor ve kuruluyor…':'Downloading and installing…',
+  'Bağımsız kalibrasyon':'Independent calibration','Eski ortak kalibrasyon':'Previous shared calibration','calibration_changed':'Calibration method changed',
+  'Sürüm':'Version','Güncellemeler':'Updates','Güncellemeleri kontrol et':'Check for updates','Kontrol ediliyor…':'Checking…','İndir ve kur':'Download and install','İndiriliyor ve kuruluyor…':'Downloading and installing…',
   'GitHub sürümleri kontrol ediliyor.':'Checking GitHub releases.','İmza doğrulanacak; kurulum sırasında uygulama yeniden başlayabilir.':'The signature will be verified; the app may restart during installation.',
   'Yeni sürüm':'New version','En güncel sürümü kullanıyorsun.':'You are using the latest version.','GitHub hesabı gerektirmez. Yalnızca yayınlanmış sürümler kontrol edilir.':'No GitHub account needed. Only published releases are checked.',
   'Güncelleme kuruldu. Uygulamayı yeniden açabilirsin.':'Update installed. You can reopen the app.',
@@ -65,5 +66,5 @@ const en: Record<string, string> = {
   'Token sayacı sıfırlandı; son yanıt üzerinden devam edildi':'The usage counter reset; tracking continued from the last response.',
   'Bozuk JSONL kaydı atlandı':'An unreadable usage record was skipped.'
 };
-const statusTr:Record<string,string>={in_progress:'Çalışıyor',completed:'Tamamlandı',interrupted:'Kesildi',incomplete:'Yarım kaldı',failed:'Başarısız',validated:'Doğrulandı',limited:'Sınırlı doğruluk',learning:'Öğreniliyor',unstable:'Tutarsız',insufficient:'Yetersiz kanıt',estimated_capacity_change:'Tahmini kapasite değişimi',within_model_error:'Model hata sınırı içinde',weights_relearned:'Ağırlıklar yeniden öğrenildi',ratio_recalibration:'Haftalık oran yeniden öğrenildi',usage_mix_changed:'Kullanım dağılımı değişti'};
+const statusTr:Record<string,string>={in_progress:'Çalışıyor',completed:'Tamamlandı',interrupted:'Kesildi',incomplete:'Yarım kaldı',failed:'Başarısız',validated:'Doğrulandı',limited:'Sınırlı doğruluk',learning:'Öğreniliyor',unstable:'Tutarsız',insufficient:'Yetersiz kanıt',estimated_capacity_change:'Tahmini kapasite değişimi',within_model_error:'Model hata sınırı içinde',weights_relearned:'Ağırlıklar yeniden öğrenildi',ratio_recalibration:'Eski haftalık oran kalibrasyonu',calibration_changed:'Kalibrasyon yöntemi değişti',usage_mix_changed:'Kullanım dağılımı değişti'};
 export function translate(value:string, language:Language):string { return language==='en' ? en[value]??value : statusTr[value]??value; }

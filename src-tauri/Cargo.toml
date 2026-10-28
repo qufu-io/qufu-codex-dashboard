@@ -1,6 +1,6 @@
 [package]
 name = "qufu-codex-dashboard"
-version = "1.0.2"
+version = "1.0.3"
 authors = ["alper@qufu.io"]
 license = "MIT"
 repository = "https://github.com/qufu-io/qufu-codex-dashboard"

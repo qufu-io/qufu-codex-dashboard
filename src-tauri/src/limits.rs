@@ -293,138 +293,6 @@ fn identifiable(rows: &[&Interval]) -> bool {
         - g[2][2] * g[0][1].powi(2);
     d / (g[0][0] * g[1][1] * g[2][2]) > 0.001
 }
-#[derive(Clone)]
-struct Pair {
-    start: i64,
-    at: i64,
-    reset: i64,
-    hour: f64,
-    week: f64,
-    groups: BTreeMap<String, [f64; 3]>,
-}
-fn ratio_pairs(rows: &[Interval], points: &[Point]) -> Vec<Pair> {
-    let mut weekly = BTreeMap::<i64, Vec<&Point>>::new();
-    for p in points.iter().filter(|p| p.minutes == 10080) {
-        weekly.entry(p.at).or_default().push(p);
-    }
-    let unique = |at: i64| -> Option<&Point> {
-        let group = weekly.get(&at)?;
-        let first = *group.first()?;
-        if group.iter().any(|p| {
-            p.reset != first.reset
-                || p.plan != first.plan
-                || p.limit != first.limit
-                || p.percent != first.percent
-        }) {
-            None
-        } else {
-            Some(first)
-        }
-    };
-    let mut breaks = BTreeSet::new();
-    let mut previous: Option<&Point> = None;
-    for at in weekly.keys() {
-        let Some(p) = unique(*at) else {
-            breaks.insert(*at);
-            previous = None;
-            continue;
-        };
-        if previous.is_some_and(|a| {
-            a.reset != p.reset || a.plan != p.plan || a.limit != p.limit || p.percent < a.percent
-        }) {
-            breaks.insert(*at);
-        }
-        previous = Some(p);
-    }
-    rows.iter()
-        .filter_map(|r| {
-            let a = unique(r.start)?;
-            let b = unique(r.at)?;
-            if a.reset != b.reset
-                || a.plan != b.plan
-                || a.limit != b.limit
-                || !(0. ..99.).contains(&a.percent)
-                || !(0. ..99.).contains(&b.percent)
-                || b.percent < a.percent
-                || r.percent < 4.
-                || breaks
-                    .range((
-                        std::ops::Bound::Excluded(r.start),
-                        std::ops::Bound::Included(r.at),
-                    ))
-                    .next()
-                    .is_some()
-            {
-                return None;
-            }
-            Some(Pair {
-                start: r.start,
-                at: r.at,
-                reset: a.reset,
-                hour: r.percent,
-                week: b.percent - a.percent,
-                groups: r.groups.clone(),
-            })
-        })
-        .collect()
-}
-fn weekly_ratio(pairs: &[&Pair]) -> (f64, bool) {
-    if pairs.len() < 8
-        || pairs.iter().map(|p| p.reset).collect::<BTreeSet<_>>().len() < 2
-        || pairs.iter().map(|p| p.week).sum::<f64>() < 4.
-    {
-        return (0.15, false);
-    }
-    let denominator = pairs.iter().map(|p| p.hour * p.hour).sum::<f64>();
-    let mut ratio = pairs.iter().map(|p| p.hour * p.week).sum::<f64>() / denominator;
-    for _ in 0..6 {
-        let mut residuals: Vec<_> = pairs.iter().map(|p| p.week - ratio * p.hour).collect();
-        let center = median(&mut residuals);
-        let mut deviations: Vec<_> = residuals.iter().map(|v| (v - center).abs()).collect();
-        let cutoff = (median(&mut deviations) * 1.4826 * 1.5).max(1. + ratio);
-        let (mut n, mut d) = (0., 0.);
-        for p in pairs {
-            let weight = (cutoff / (p.week - ratio * p.hour).abs().max(cutoff)).min(1.);
-            n += weight * p.hour * p.week;
-            d += weight * p.hour * p.hour;
-        }
-        ratio = n / d;
-    }
-    if !ratio.is_finite() || ratio <= 0. {
-        return (0.15, false);
-    }
-    (ratio, true)
-}
-fn validation_blocks(pairs: &[Pair]) -> Vec<Pair> {
-    let mut blocks = Vec::new();
-    let mut pending: Option<Pair> = None;
-    for p in pairs {
-        if pending.as_ref().is_some_and(|b| b.reset != p.reset) {
-            pending = None;
-        }
-        let b = pending.get_or_insert_with(|| Pair {
-            start: p.start,
-            at: p.at,
-            reset: p.reset,
-            hour: 0.,
-            week: 0.,
-            groups: BTreeMap::new(),
-        });
-        b.at = p.at;
-        b.hour += p.hour;
-        b.week += p.week;
-        for (name, x) in &p.groups {
-            let group = b.groups.entry(name.clone()).or_default();
-            for j in 0..3 {
-                group[j] += x[j];
-            }
-        }
-        if b.week >= 4. {
-            blocks.push(pending.take().unwrap());
-        }
-    }
-    blocks
-}
 fn estimate(
     samples: &[Sample],
     points: &[Point],
@@ -451,7 +319,7 @@ fn estimate(
         .iter()
         .filter(|p| {
             p.at <= at
-                && p.minutes == 300
+                && p.minutes == minutes
                 && plan.zip(p.plan.as_deref()).is_none_or(|(a, b)| a == b)
         })
         .max_by_key(|p| p.at)
@@ -462,7 +330,7 @@ fn estimate(
         .filter(|p| p.at <= at && p.limit == group)
         .cloned()
         .collect();
-    let all_rows = intervals_with_threshold(samples, &past, 300, plan, 3.);
+    let all_rows = intervals_with_threshold(samples, &past, minutes, plan, 3.);
     let rows: Vec<_> = all_rows
         .iter()
         .rev()
@@ -479,60 +347,15 @@ fn estimate(
     {
         *local.get_or_insert(0.) += s.tokens();
     }
-    let mut value = json!({"used":null,"capacity":null,"localTokens":local,"percent":percent,"reset":reset,"approximate":true,"intervals":rows.len(),"resets":rows.iter().map(|r|r.reset).collect::<BTreeSet<_>>().len(),"medianErrorPercent":null,"p90ErrorPercent":null,"validationCount":0,"reliability":"insufficient","method":"initial-ratio","priceIndependent":true,"reference":"uncached-input-equivalent","weights":null,"weeklyRatio":0.15,"weeklyRatioLearned":false});
+    let mut value = json!({"used":null,"capacity":null,"localTokens":local,"percent":percent,"reset":reset,"approximate":true,"intervals":rows.len(),"resets":rows.iter().map(|r|r.reset).collect::<BTreeSet<_>>().len(),"medianErrorPercent":null,"p90ErrorPercent":null,"validationCount":0,"reliability":"insufficient","method":"initial-ratio","priceIndependent":true,"reference":"uncached-input-equivalent","weights":null,"calibrationMode":"independent-v1","windowMinutes":minutes});
     if rows.is_empty() {
         return value;
     }
     let model = fit(&rows.iter().collect::<Vec<_>>());
-    let ratio_rows = intervals_with_threshold(samples, &past, 300, plan, 10.);
-    let pairs = ratio_pairs(&ratio_rows, &past);
-    let (r, learned) = weekly_ratio(&pairs.iter().collect::<Vec<_>>());
-    let (typical, p90, count) = if minutes == 300 {
-        validation(&rows)
-    } else {
-        let mut errors = Vec::new();
-        for p in validation_blocks(&pairs)
-            .iter()
-            .rev()
-            .take(48)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-        {
-            let train: Vec<_> = pairs
-                .iter()
-                .filter(|q| q.at < p.start && q.reset != p.reset)
-                .collect();
-            let (r, known) = weekly_ratio(&train);
-            let training: Vec<_> = all_rows
-                .iter()
-                .rev()
-                .filter(|q| q.at < p.start - 30)
-                .take(240)
-                .collect();
-            if !known || training.len() < 12 {
-                continue;
-            }
-            errors.push((fit(&training).predict(&p.groups) * r - p.week).abs() / p.week * 100.);
-        }
-        if errors.len() < 4 {
-            (None, None, errors.len())
-        } else {
-            let median = median(&mut errors);
-            (
-                Some(median),
-                Some(errors[((errors.len() - 1) as f64 * 0.9).ceil() as usize]),
-                errors.len(),
-            )
-        }
-    };
+    let (typical, p90, count) = validation(&rows);
     value["medianErrorPercent"] = json!(typical);
     value["p90ErrorPercent"] = json!(p90);
     value["validationCount"] = json!(count);
-    value["weeklyRatio"] = json!(r);
-    value["weeklyRatioLearned"] = json!(learned);
-    value["ratioObservations"] = json!(pairs.len());
-    value["ratioSignalPercentagePoints"] = json!(pairs.iter().map(|p| p.week).sum::<f64>());
     value["weights"] = json!(model.common.map(|c| c / 100_000.));
     value["identifiable"] = json!(model.regression);
     let mut model_mix = BTreeMap::<String, f64>::new();
@@ -567,7 +390,7 @@ fn estimate(
         }
     }
     value["method"] = json!(if model.regression {
-        "robust-ridge-shared"
+        "robust-ridge-independent"
     } else {
         "initial-ratio"
     });
@@ -578,19 +401,17 @@ fn estimate(
     if model.common[0] <= 0. {
         return value;
     }
-    let capacity = 100. * 100_000. / model.common[0] / if minutes == 10080 { r } else { 1. };
+    let capacity = 100. * 100_000. / model.common[0];
     if !capacity.is_finite() || !(1. ..=1e13).contains(&capacity) {
         return value;
     }
     value["capacity"] = json!(capacity);
     value["used"] = json!(capacity * percent / 100.);
-    value["reliability"] = json!(
-        if model.regression && count >= 8 && (minutes == 300 || learned) {
-            "validated"
-        } else {
-            "learning"
-        }
-    );
+    value["reliability"] = json!(if model.regression && count >= 8 {
+        "validated"
+    } else {
+        "learning"
+    });
     value
 }
 fn capacity_change(previous: &Value, current: &Value) -> Value {
@@ -624,8 +445,8 @@ fn capacity_change(previous: &Value, current: &Value) -> Value {
         || error.is_none()
     {
         "insufficient"
-    } else if previous["weeklyRatio"] != current["weeklyRatio"] {
-        "ratio_recalibration"
+    } else if previous["calibrationMode"] != current["calibrationMode"] {
+        "calibration_changed"
     } else if weights_changed {
         "weights_relearned"
     } else if mix_changed {
@@ -888,33 +709,37 @@ impl Store {
                     .map_err(|e| e.to_string())?;
             }
         }
-        let identity = data
-            .points
-            .iter()
-            .filter(|p| p.minutes == 300 && (at == 0 || p.at <= at))
-            .max_by_key(|p| p.at)
-            .map(|p| p.limit.as_str())
-            .unwrap_or("");
-        let same_group: Vec<_> = data
-            .points
-            .iter()
-            .filter(|p| p.limit == identity)
-            .cloned()
-            .collect();
-        let rows = intervals(&data.samples, &same_group, 300, plan);
-        if !rows.is_empty() {
+        for minutes in [300, 10080] {
+            let identity = data
+                .points
+                .iter()
+                .filter(|p| p.minutes == minutes && (at == 0 || p.at <= at))
+                .max_by_key(|p| p.at)
+                .map(|p| p.limit.as_str())
+                .unwrap_or("");
+            let same_group: Vec<_> = data
+                .points
+                .iter()
+                .filter(|p| p.limit == identity && (at == 0 || p.at <= at))
+                .cloned()
+                .collect();
+            let rows = intervals(&data.samples, &same_group, minutes, plan);
+            if rows.is_empty() {
+                continue;
+            }
             let model = fit(&rows.iter().collect::<Vec<_>>());
             for row in &rows {
                 let predicted = model.predict(&row.groups);
                 let residual = predicted - row.percent;
-                let evidence = json!({"noncached":row.x[0],"cached":row.x[1],"output":row.x[2],"groups":row.groups,"deltaPercent":row.percent,"predictedDeltaPercent":predicted,"residualPercentagePoints":residual,"roundingUncertaintyPercentagePoints":1.,"quality":if residual.abs()>row.percent*0.35+1. {"suspect_unobserved_usage_or_model_change"}else {"usable"},"weight":row.weight});
+                let evidence = json!({"noncached":row.x[0],"cached":row.x[1],"output":row.x[2],"groups":row.groups,"deltaPercent":row.percent,"predictedDeltaPercent":predicted,"residualPercentagePoints":residual,"roundingUncertaintyPercentagePoints":1.,"quality":if residual.abs()>row.percent*0.35+1. {"suspect_unobserved_usage_or_model_change"}else {"usable"},"weight":row.weight,"calibrationMode":"independent-v1"});
                 self.connection
                     .execute(
-                        "INSERT OR IGNORE INTO observation_intervals VALUES(?1,?2,?3,300,?4,?5,?6)",
+                        "INSERT OR IGNORE INTO observation_intervals VALUES(?1,?2,?3,?4,?5,?6,?7)",
                         params![
                             row.start,
                             row.at,
                             row.reset,
+                            minutes,
                             plan.unwrap_or(""),
                             identity,
                             evidence.to_string()
@@ -1274,7 +1099,96 @@ mod tests {
         (samples, points, window, last_at)
     }
     #[test]
-    fn initial_ratio_has_a_fixed_input_reference_and_weekly_requires_hourly_evidence() {
+    fn independent_weekly_fit_and_legacy_history_survive_restart() {
+        let path = std::env::temp_dir().join(format!(
+            "qufu-independent-{}.sqlite3",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        let (samples, points, window, at) = fixture(10080, 4.);
+        let data = Observations {
+            samples,
+            points,
+            unreadable: 0,
+        };
+        let store = Store::open(&path).unwrap();
+        let legacy = json!({"capacity":1000000.,"weeklyRatio":0.15});
+        store
+            .connection
+            .execute(
+                "INSERT INTO calibration_history VALUES(?1,10080,'pro','codex',?2)",
+                params![at - 1, legacy.to_string()],
+            )
+            .unwrap();
+        store.save_calibration(&data,&json!({"at":at,"stale":false,"value":{"plan_type":"pro","limit_id":"codex","secondary":window}})).unwrap();
+        let count: i64 = store
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM observation_intervals WHERE minutes=10080",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(count > 0);
+        let count: i64 = store
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM observation_intervals WHERE minutes=300",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0);
+        drop(store);
+        let reopened = Store::open(&path).unwrap();
+        let saved: String = reopened
+            .connection
+            .query_row(
+                "SELECT data FROM calibration_history WHERE at=?1",
+                [at],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let saved: Value = serde_json::from_str(&saved).unwrap();
+        assert_eq!(saved["calibrationMode"], "independent-v1");
+        assert_eq!(saved["reliability"], "validated");
+        let prior: String = reopened
+            .connection
+            .query_row(
+                "SELECT data FROM calibration_history WHERE at=?1",
+                [at - 1],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&prior).unwrap(), legacy);
+        drop(reopened);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn weekly_calibration_is_independent_of_hourly_points() {
+        let (samples, points, window, at) = fixture(10080, 4.);
+        let weekly = estimate(&samples, &points, &window, Some("pro"), at);
+        assert_eq!(weekly["reliability"], "validated", "{weekly}");
+        assert!(weekly["capacity"].as_f64().unwrap() > 0.);
+        for (j, expected) in [0.00001, 0.000001, 0.00005].into_iter().enumerate() {
+            assert!(
+                (weekly["weights"][j].as_f64().unwrap() / expected - 1.).abs() < 0.2,
+                "{weekly}"
+            );
+        }
+        let mut mixed = points.clone();
+        mixed.extend(points.iter().map(|p| Point {
+            minutes: 300,
+            reset: p.at + 18000,
+            percent: 99.,
+            limit: "different-hourly-group".into(),
+            ..p.clone()
+        }));
+        let unchanged = estimate(&samples, &mixed, &window, Some("pro"), at);
+        assert_eq!(weekly, unchanged);
+        assert!(weekly.get("weeklyRatio").is_none());
+    }
+    #[test]
+    fn initial_ratio_has_a_fixed_reference_and_missing_own_window_stays_unknown() {
         let samples = vec![Sample {
             id: "r".into(),
             at: 100,
@@ -1322,66 +1236,41 @@ mod tests {
         assert_eq!(no_hour["localTokens"], 40000.);
     }
     #[test]
-    fn shared_regression_recovers_weights_and_weekly_ratio_from_synchronous_data() {
-        let (samples, mut points, window, at) = fixture(300, 1.);
-        let hour = estimate(&samples, &points, &window, Some("pro"), at);
-        assert_eq!(hour["method"], "robust-ridge-shared");
-        assert_eq!(hour["reliability"], "validated");
-        assert!(hour["medianErrorPercent"].as_f64().unwrap() < 10., "{hour}");
-        let n = hour["weights"][0].as_f64().unwrap();
-        assert!((n / 0.00004 - 1.).abs() < 0.15, "{hour}");
-        for (j, truth) in [0.00004, 0.000004, 0.0002].into_iter().enumerate() {
+    fn each_window_recovers_its_own_weights_and_capacity() {
+        for (minutes, multiplier) in [(300, 1.), (10080, 4.)] {
+            let (samples, points, window, at) = fixture(minutes, multiplier);
+            let value = estimate(&samples, &points, &window, Some("pro"), at);
+            assert_eq!(value["method"], "robust-ridge-independent");
+            assert_eq!(value["reliability"], "validated", "{value}");
+            assert!(value["medianErrorPercent"].as_f64().unwrap() < 10.);
+            for (j, truth) in [0.00004, 0.000004, 0.0002].into_iter().enumerate() {
+                assert!(
+                    (value["weights"][j].as_f64().unwrap() / (truth / multiplier) - 1.).abs() < 0.2,
+                    "{value}"
+                );
+            }
             assert!(
-                (hour["weights"][j].as_f64().unwrap() / truth - 1.).abs() < 0.2,
-                "{hour}"
+                (value["capacity"].as_f64().unwrap()
+                    - 100. / value["weights"][0].as_f64().unwrap())
+                .abs()
+                    < 1e-5
             );
         }
-        assert!((hour["capacity"].as_f64().unwrap() - 100. / n).abs() < 1e-5);
-        let first = points[0].at;
-        let boundary = first + 3 * 18000;
-        let mut last_hour_reset = 0;
-        let mut previous = 0.;
-        let mut week = 0.;
-        let mut last_week_reset = 0;
-        let mut weekly = Vec::new();
-        for p in &points {
-            let reset = if p.at < boundary {
-                boundary
-            } else {
-                boundary + 604800
-            };
-            if reset != last_week_reset {
-                week = 0.;
-                last_week_reset = reset;
-            }
-            if p.reset != last_hour_reset {
-                previous = 0.;
-                last_hour_reset = p.reset;
-            }
-            week += (p.percent - previous).max(0.) * 0.2;
-            previous = p.percent;
-            weekly.push(Point {
-                minutes: 10080,
-                reset,
-                percent: week,
-                ..p.clone()
-            });
-        }
-        let last = weekly.last().unwrap().clone();
-        points.extend(weekly);
-        points.sort_by_key(|p| p.at);
-        let w = json!({"window_minutes":10080,"resets_at":last.reset,"used_percent":last.percent});
-        let estimate = estimate(&samples, &points, &w, Some("pro"), at);
-        assert_eq!(estimate["weeklyRatioLearned"], true, "{estimate}");
-        assert!(
-            (estimate["weeklyRatio"].as_f64().unwrap() - 0.2).abs() < 0.005,
-            "{estimate}"
-        );
-        assert_eq!(estimate["weights"], hour["weights"]);
-        assert!(
-            (estimate["capacity"].as_f64().unwrap() / hour["capacity"].as_f64().unwrap() - 5.)
-                .abs()
-                < 0.1
+    }
+    #[test]
+    fn hourly_calibration_is_independent_of_weekly_points() {
+        let (samples, mut points, window, at) = fixture(300, 1.);
+        let expected = estimate(&samples, &points, &window, Some("pro"), at);
+        points.extend(points.clone().iter().map(|p| Point {
+            minutes: 10080,
+            reset: p.at + 604800,
+            percent: 99.,
+            limit: "weekly-only-group".into(),
+            ..p.clone()
+        }));
+        assert_eq!(
+            expected,
+            estimate(&samples, &points, &window, Some("pro"), at)
         );
     }
     #[test]
@@ -1393,76 +1282,7 @@ mod tests {
         let estimate = estimate(&samples, &points, &window, Some("pro"), at);
         assert_eq!(estimate["identifiable"], false);
         assert_ne!(estimate["reliability"], "validated");
-        assert_eq!(estimate["weeklyRatio"], 0.15);
-        assert_eq!(estimate["weeklyRatioLearned"], false);
-    }
-    #[test]
-    fn learned_weekly_ratio_survives_beyond_the_hourly_fit_horizon() {
-        let start = 1700000000;
-        let first_week_reset = start + 5 * 18000;
-        let mut samples = Vec::new();
-        let mut points = Vec::new();
-        let mut week: f64 = 0.;
-        let mut last_week_reset = 0;
-        let mut at = 0;
-        let mut reset = 0;
-        for w in 0..30 {
-            reset = if w < 5 {
-                first_week_reset
-            } else {
-                first_week_reset + 604800
-            };
-            if reset != last_week_reset {
-                week = 0.;
-                last_week_reset = reset;
-            }
-            let hour_start = start + w * 18000;
-            for j in 0..=30 {
-                at = hour_start + 1 + j * 60;
-                if j > 0 {
-                    week = (week + 0.6).min(99.);
-                    samples.push(Sample {
-                        id: format!("r{w}-{j}"),
-                        at,
-                        group: "model|standard".into(),
-                        x: [75000., 0., 0.],
-                    });
-                }
-                points.push(Point {
-                    at,
-                    minutes: 300,
-                    reset: hour_start + 18000,
-                    percent: j as f64 * 3.,
-                    plan: Some("pro".into()),
-                    limit: "codex".into(),
-                });
-                points.push(Point {
-                    at,
-                    minutes: 10080,
-                    reset,
-                    percent: week,
-                    plan: Some("pro".into()),
-                    limit: "codex".into(),
-                });
-            }
-        }
-        let recent = intervals(&samples, &points, 300, Some("pro"));
-        assert_eq!(recent.len(), 240);
-        assert!(ratio_pairs(&recent, &points).is_empty());
-        let value = estimate(
-            &samples,
-            &points,
-            &json!({"window_minutes":10080,"resets_at":reset,"used_percent":week}),
-            Some("pro"),
-            at,
-        );
-        assert_eq!(value["weeklyRatioLearned"], true, "{value}");
-        assert!(
-            (value["weeklyRatio"].as_f64().unwrap() - 0.2).abs() < 0.01,
-            "{value}"
-        );
-        assert_eq!(value["intervals"], 240);
-        assert_eq!(value["identifiable"], false);
+        assert!(estimate.get("weeklyRatio").is_none());
     }
     #[test]
     fn an_intermediate_drop_invalidates_an_accumulating_cohort() {
@@ -1499,83 +1319,6 @@ mod tests {
         }
     }
     #[test]
-    fn rounded_zero_weekly_deltas_do_not_bias_ratio_upwards() {
-        for truth in [0.05, 1.5] {
-            let mut rows = Vec::new();
-            let mut points = Vec::new();
-            for w in 0..2 {
-                let base = 1700000000 + w * 604800;
-                for j in 0..=8 {
-                    let at = base + j * 100;
-                    points.push(Point {
-                        at,
-                        minutes: 10080,
-                        reset: base + 604800,
-                        percent: (0.25 + j as f64 * 10. * truth).round(),
-                        plan: Some("pro".into()),
-                        limit: "codex".into(),
-                    });
-                    if j > 0 {
-                        rows.push(Interval {
-                            reset: base + 18000,
-                            start: at - 100,
-                            at,
-                            x: [100000., 0., 0.],
-                            groups: BTreeMap::from([("model".into(), [100000., 0., 0.])]),
-                            percent: 10.,
-                            weight: 1.,
-                        });
-                    }
-                }
-            }
-            let pairs = ratio_pairs(&rows, &points);
-            if truth < 0.1 {
-                assert_eq!(pairs.len(), 16);
-                assert!(pairs.iter().any(|p| p.week == 0.));
-            }
-            let (ratio, learned) = weekly_ratio(&pairs.iter().collect::<Vec<_>>());
-            assert!(learned);
-            assert!((ratio - truth).abs() < 0.001, "{ratio} != {truth}");
-            assert!(validation_blocks(&pairs).iter().all(|b| b.week >= 4.));
-            let zeros: Vec<_> = pairs
-                .iter()
-                .map(|p| Pair {
-                    week: 0.,
-                    ..p.clone()
-                })
-                .collect();
-            assert_eq!(
-                weekly_ratio(&zeros.iter().collect::<Vec<_>>()),
-                (0.15, false)
-            );
-        }
-    }
-    #[test]
-    fn a_weekly_drop_inside_an_hourly_cohort_invalidates_the_pair() {
-        let points: Vec<_> = [20., 29., 24., 30.]
-            .into_iter()
-            .enumerate()
-            .map(|(i, percent)| Point {
-                at: 1 + i as i64 * 30,
-                minutes: 10080,
-                reset: 604800,
-                percent,
-                plan: Some("pro".into()),
-                limit: "codex".into(),
-            })
-            .collect();
-        let rows = vec![Interval {
-            reset: 18000,
-            start: 1,
-            at: 91,
-            x: [1000., 0., 0.],
-            groups: BTreeMap::new(),
-            percent: 10.,
-            weight: 1.,
-        }];
-        assert!(ratio_pairs(&rows, &points).is_empty());
-    }
-    #[test]
     fn future_observations_cannot_change_a_historical_estimate() {
         let (mut samples, mut points, window, at) = fixture(300, 1.);
         let before = estimate(&samples, &points, &window, Some("pro"), at);
@@ -1600,20 +1343,22 @@ mod tests {
     }
     #[test]
     fn resets_plan_changes_missing_intervals_and_expiring_usage_do_not_train_as_spend() {
-        let (s, mut p, w, at) = fixture(300, 1.);
-        let valid = intervals(&s, &p, 300, Some("pro")).len();
-        p[2].percent = 0.;
-        assert!(intervals(&s, &p, 300, Some("pro")).len() < valid);
-        assert!(estimate(&s, &p, &w, Some("plus"), at)["capacity"].is_null());
-        assert!(
-            estimate(&s, &p, &w, Some("pro"), w["resets_at"].as_i64().unwrap())["capacity"]
-                .is_null()
-        );
-        assert!(estimate(&[], &p, &w, Some("pro"), at)["localTokens"].is_null());
-        assert!(intervals(&[], &p, 300, Some("pro")).is_empty());
-        let mut bad = w.clone();
-        bad["used_percent"] = json!(105);
-        assert!(estimate(&s, &p, &bad, Some("pro"), at).is_null());
+        for minutes in [300, 10080] {
+            let (s, mut p, w, at) = fixture(minutes, 1.);
+            let valid = intervals(&s, &p, minutes, Some("pro")).len();
+            p[2].percent = 0.;
+            assert!(intervals(&s, &p, minutes, Some("pro")).len() < valid);
+            assert!(estimate(&s, &p, &w, Some("plus"), at)["capacity"].is_null());
+            assert!(
+                estimate(&s, &p, &w, Some("pro"), w["resets_at"].as_i64().unwrap())["capacity"]
+                    .is_null()
+            );
+            assert!(estimate(&[], &p, &w, Some("pro"), at)["localTokens"].is_null());
+            assert!(intervals(&[], &p, minutes, Some("pro")).is_empty());
+            let mut bad = w.clone();
+            bad["used_percent"] = json!(105);
+            assert!(estimate(&s, &p, &bad, Some("pro"), at).is_null());
+        }
     }
     #[test]
     fn one_outlier_and_a_new_unpriced_model_do_not_destroy_the_robust_fit() {
@@ -1838,10 +1583,10 @@ mod tests {
             "weights_relearned"
         );
         next = original.clone();
-        next["weeklyRatio"] = json!(0.2);
+        next["calibrationMode"] = json!("independent-v1");
         assert_eq!(
             capacity_change(&original, &next)["status"],
-            "ratio_recalibration"
+            "calibration_changed"
         );
         next = original.clone();
         next["p90ErrorPercent"] = Value::Null;

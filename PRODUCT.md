@@ -38,3 +38,6 @@ Development measurement update: Last Request is a whole user task keyed by turn_
 
 
 Same-version 1.0.2 refresh: one automatic content-fitted layout (300px main, 371px expanded panel), no Compact view preference. Startup measures the intended content width and fonts, and resize events reconcile restored native geometry. Other saved preferences persist. Public screenshots use illustrative, non-personal data.
+
+
+1.0.3 supersedes the shared weekly model: each quota window independently fits its own N/C/O weights and validates against its own resets; no hourly/weekly ratio or coefficient sharing. The main window always shows a compact Version/update row above the centered qufu.io and alper@qufu.io author footer, including when Settings is closed.

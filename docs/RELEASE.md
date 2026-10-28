@@ -50,3 +50,8 @@ The owner explicitly requested removal of Compact view, corrected startup sizing
 
 
 Refresh published successfully from source `1f663fc75e9436aa746356d3b7a9d68674447a0c`: [source CI 40580240768](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40580240768) passed 61 Rust and 31 Playwright tests per platform; [signed builds 40580240762](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40580240762) passed. Actual Windows WebView2 startup, Settings expansion/collapse, correction of an intentionally wrong native size and absence of Compact view were verified. After the user voluntarily closed the installed app, only the newly started helper was stopped/restarted. All three package signatures, signed versions and tamper rejection passed. All nine replacement assets, the refreshed source archive and the new illustrative README screenshot were downloaded anonymously with matching hashes. The old asset set remains backed up privately. Original tags remain unchanged; releases identify the refreshed source SHA/archive. Application and manifest version remain 1.0.2, so existing 1.0.2 users reinstall manually.
+
+
+## Authorized 1.0.3 — 2026-10-28
+
+The owner authorized independent weekly calibration, an always-visible Version/update/author footer, tests and publication as 1.0.3. Use a new immutable source tag, pass both platform CI jobs, verify signatures and publish new signed packages/manifest. Normal in-app updates from 1.0.2 are supported by the increased version.

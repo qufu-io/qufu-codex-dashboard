@@ -278,7 +278,7 @@ test('updates check current and new releases without login, and install only aft
  await page.locator('#openReleases').click();
  expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='open_release_page').length)).toBe(1);
  await page.locator('#language').selectOption('tr');await fitPanel(page);
- await expect(page.locator('#updatesHeading')).toHaveText('Güncellemeler');
+ await expect(page.locator('#updatesHeading')).toHaveText('Sürüm');
  await expect(page.locator('#checkUpdate')).toHaveText('Güncellemeleri kontrol et');
  await page.screenshot({path:'artifacts/ui-update-settings-1.0-tr.png'});
 });
@@ -306,7 +306,7 @@ test('compact settings saves height and keeps controls aligned at 300 and 371 pi
   for(const language of ['en','tr']){await page.locator('#language').selectOption(language);for(const theme of ['dark','light']){
    await page.locator('#theme').selectOption(theme);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
-   const layout=await page.evaluate(()=>{const box=(id:string)=>document.querySelector(id)!.getBoundingClientRect();return {check:box('#checkUpdate').y,github:box('#openReleases').y,status:box('#updateStatus').y,author:box('.author').bottom,bottom:box('#panel').bottom};});
+   const layout=await page.evaluate(()=>{const box=(id:string)=>document.querySelector(id)!.getBoundingClientRect();return {check:box('#checkUpdate').y,github:box('#openReleases').y,status:box('#updateStatus').y,author:box('.author').bottom,bottom:box('#releaseFooter').bottom};});
    expect(Math.abs(layout.check-layout.github)).toBeLessThan(1);expect(Math.abs(layout.check-layout.status)).toBeLessThan(6);expect(layout.author).toBeLessThanOrEqual(layout.bottom);
    await expect(page.locator('.author')).toContainText('alper@qufu.io');
   }}
@@ -424,6 +424,26 @@ test('public README screenshot uses illustrative data without personal informati
  await fitWindow(page);
  await expect(page.locator('#sessionTitle')).toHaveText('Example Workspace - Dashboard');
  await expect(page.locator('#workspace')).toHaveText('C:\\Projects\\Example');
- expect(await page.locator('#app').innerText()).not.toMatch(/alper|GenA|IOG|Users|Test ana/);
- await page.locator('#app').screenshot({path:'artifacts/dashboard-public-1.0.2.png'});
+ expect((await page.locator('#app').innerText()).replaceAll('alper@qufu.io','')).not.toMatch(/alper|GenA|IOG|Users|Test ana/);
+ await page.locator('#app').screenshot({path:'artifacts/dashboard-public-1.0.3.png'});
+});
+
+
+test('version, updates and author stay visible without Settings',async({page})=>{
+ await expect(page.locator('.author')).toBeVisible();
+ await expect(page.locator('.author')).toHaveText('qufu.ioalper@qufu.io');
+ await expect(page.locator('#updatesHeading')).toHaveText('Version');
+ await expect(page.locator('#checkUpdate')).toBeVisible();
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>cmd==='check_update'?{available:false,currentVersion:'1.0.3'}:base(cmd,args);});
+ await page.locator('#checkUpdate').click();
+ await expect(page.locator('#updateStatus')).toHaveText('Up to date');
+ await page.locator('#settingsToggle').click();
+ await fitPanel(page);
+ await page.locator('#language').selectOption('tr');
+ await expect(page.locator('#updatesHeading')).toHaveText('Sürüm');
+ await fitPanel(page);
+ await page.locator('#settingsToggle').click();
+ await expect(page.locator('.author')).toBeVisible();
+ await expect(page.locator('#checkUpdate')).toHaveText('Güncellemeleri kontrol et');
+ await fitWindow(page);
 });
