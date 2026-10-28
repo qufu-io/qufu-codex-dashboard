@@ -55,3 +55,8 @@ Refresh published successfully from source `1f663fc75e9436aa746356d3b7a9d6867444
 ## Authorized 1.0.3 — 2026-10-28
 
 The owner authorized independent weekly calibration, an always-visible Version/update/author footer, tests and publication as 1.0.3. Use a new immutable source tag, pass both platform CI jobs, verify signatures and publish new signed packages/manifest. Normal in-app updates from 1.0.2 are supported by the increased version.
+
+
+## Published 1.0.3 — 2026-10-28
+
+Source/tag: `8fe154eaee941ac64b6c6258154d3aa7bd645c13` / `v1.0.3`. [Source CI 40645911296](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40645911296) passed 61 Rust and 32 Playwright tests on each of Windows and Ubuntu 22.04. [Signed package CI 40645911526](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40645911526) passed. All three updater signatures, signed version 1.0.3 and tamper rejection were verified. All nine [public assets](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.3) were downloaded without authentication and matched local SHA-256 digests. The latest updater manifest serves 1.0.3 with five platform aliases; distribution documentation/tag identifies `a18bc99`. A scoped independent review found no release blockers. Native 1.0.3 desktop interactions and clean-host installation were not separately exercised; do not equate mocked-IPC UI tests with those checks.
