@@ -33,6 +33,20 @@ fn normalized(v: &Value) -> Value {
     let window = |w: &Value| json!({"used_percent":w["usedPercent"],"window_minutes":w["windowDurationMins"],"resets_at":w["resetsAt"]});
     json!({"primary":window(&v["primary"]),"secondary":window(&v["secondary"]),"plan_type":v["planType"],"limit_id":v["limitId"]})
 }
+fn scoped_snapshot(result: &Value) -> Option<Value> {
+    use sha2::{Digest, Sha256};
+    let raw = result
+        .pointer("/rateLimitsByLimitId/codex")
+        .or_else(|| result.get("rateLimits"))?;
+    let mut value = normalized(raw);
+    if let Some(id) = result["accountId"].as_str().filter(|s| !s.is_empty()) {
+        value["account_key"] = json!(format!(
+            "{:x}",
+            Sha256::digest(format!("qufu-account-v1:{id}"))
+        ));
+    }
+    Some(value)
+}
 fn request(
     input: &mut ChildStdin,
     rx: &mpsc::Receiver<Value>,
@@ -107,29 +121,14 @@ impl Feed {
             json!({"clientInfo":{"name":"qufu_codex_dashboard","title":"Qufu Codex Dashboard","version":env!("CARGO_PKG_VERSION")}}),
         )?;
         writeln!(input, "{}", json!({"method":"initialized","params":{}})).map_err(|_| ())?;
-        let mut id = 2;
-        while !self.stopped.load(Ordering::Relaxed) {
-            let result = request(&mut input, &rx, id, "account/rateLimits/read", json!({}))?;
-            id += 1;
-            let snapshot = result
-                .pointer("/rateLimitsByLimitId/codex")
-                .or_else(|| result.get("rateLimits"))
-                .ok_or(())?;
-            let v = normalized(snapshot);
-            if v["primary"]["used_percent"].is_number()
-                || v["secondary"]["used_percent"].is_number()
-            {
-                let at = chrono::Utc::now().timestamp();
-                *self.latest.lock().map_err(|_| ())? = Some(
-                    json!({"at":at,"value":v,"source":"Codex account/rateLimits/read","stale":false}),
-                );
-            }
-            for _ in 0..30 {
-                if self.stopped.load(Ordering::Relaxed) {
-                    return Ok(());
-                }
-                std::thread::sleep(Duration::from_secs(1));
-            }
+        let result = request(&mut input, &rx, 2, "account/rateLimits/read", json!({}))?;
+        let value = scoped_snapshot(&result).ok_or(())?;
+        if value["primary"]["used_percent"].is_number()
+            || value["secondary"]["used_percent"].is_number()
+        {
+            *self.latest.lock().map_err(|_| ())? = Some(
+                json!({"at":chrono::Utc::now().timestamp(),"value":value,"source":"Codex account/rateLimits/read","stale":false}),
+            );
         }
         Ok(())
     }
@@ -155,6 +154,24 @@ impl Feed {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn account_scope_uses_only_explicit_snapshot_identity() {
+        let raw = json!({"rateLimits":{"primary":{"windowDurationMins":10080,"usedPercent":16,"resetsAt":800000}}});
+        assert!(scoped_snapshot(&raw).unwrap()["account_key"].is_null());
+        let mut a = raw.clone();
+        a["accountId"] = json!("synthetic-account-A");
+        let mut b = raw.clone();
+        b["accountId"] = json!("synthetic-account-B");
+        let x = scoped_snapshot(&a).unwrap();
+        assert_eq!(x["primary"]["window_minutes"], 10080);
+        assert!(x["secondary"]["used_percent"].is_null());
+        assert_eq!(x["account_key"].as_str().unwrap().len(), 64);
+        assert_ne!(
+            x["account_key"],
+            scoped_snapshot(&b).unwrap()["account_key"]
+        );
+        assert!(!x.to_string().contains("synthetic-account-A"));
+    }
     #[test]
     fn normalize_does_not_swap_windows() {
         let n = normalized(

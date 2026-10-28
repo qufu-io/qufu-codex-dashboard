@@ -44,7 +44,7 @@ export async function mountHistory(){
    const title=esc(detail(p)),xx=x(p.x),yy=y(p.y);
    if(turns){const width=Math.max(1,Math.min(18,340/records.length));chart+=`<rect class="history-mark" data-point="${i}" tabindex="0" x="${xx-width/2}" y="${yy}" width="${width}" height="${Math.max(1,137-yy)}"><title>${title}</title></rect>`;}
    else {
-    const same=previous&&(context?previous.context?.capacity===p.context?.capacity&&previous.model===p.model:previous.plan===p.plan&&previous.limitId===p.limitId&&(view==='percent'||previous.calibrationMode===p.calibrationMode)&&p.at-previous.at<=900&&(view==='percent'?previous.reset===p.reset:previous.reliability==='validated'&&p.reliability==='validated'));
+    const same=previous&&(context?previous.context?.capacity===p.context?.capacity&&previous.model===p.model:previous.plan===p.plan&&previous.limitId===p.limitId&&previous.epoch===p.epoch&&(view==='percent'||previous.calibrationMode===p.calibrationMode)&&p.at-previous.at<=900&&(view==='percent'?previous.reset===p.reset:previous.reliability==='validated'&&p.reliability==='validated'));
     if(same)chart+=`<path class="history-line" d="M${x(previous!.x)} ${y(previous!.y)}L${xx} ${yy}"/>`;
     chart+=`<circle class="history-mark${p.compacted?' compacted':''}" data-point="${i}" tabindex="0" cx="${xx}" cy="${yy}" r="3"><title>${title}</title></circle>`;
    }

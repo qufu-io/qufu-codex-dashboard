@@ -32,6 +32,8 @@ struct Point {
     percent: f64,
     plan: Option<String>,
     limit: String,
+    scope: String,
+    epoch: i64,
 }
 #[derive(Clone)]
 struct Interval {
@@ -116,6 +118,8 @@ fn intervals_with_threshold(
         }
         let interrupted = last_observed.as_ref().is_some_and(|last| {
             last.reset != p.reset
+                || last.epoch != p.epoch
+                || last.scope != p.scope
                 || last.limit != p.limit
                 || last
                     .plan
@@ -134,6 +138,8 @@ fn intervals_with_threshold(
             continue;
         };
         if a.reset != p.reset
+            || a.epoch != p.epoch
+            || a.scope != p.scope
             || a.plan
                 .as_ref()
                 .zip(p.plan.as_ref())
@@ -315,10 +321,12 @@ fn estimate(
     {
         return Value::Null;
     }
+    let scope = window["_account_scope"].as_str().unwrap_or("");
     let group = points
         .iter()
         .filter(|p| {
             p.at <= at
+                && p.scope == scope
                 && p.minutes == minutes
                 && plan.zip(p.plan.as_deref()).is_none_or(|(a, b)| a == b)
         })
@@ -327,7 +335,7 @@ fn estimate(
         .unwrap_or("");
     let past: Vec<_> = points
         .iter()
-        .filter(|p| p.at <= at && p.limit == group)
+        .filter(|p| p.at <= at && p.limit == group && p.scope == scope)
         .cloned()
         .collect();
     let all_rows = intervals_with_threshold(samples, &past, minutes, plan, 3.);
@@ -340,14 +348,21 @@ fn estimate(
         .into_iter()
         .rev()
         .collect();
+    let observed: Vec<_> = past.iter().filter(|p| p.minutes == minutes).collect();
+    let belongs = |t: i64| {
+        scope.is_empty()
+            || observed
+                .windows(2)
+                .any(|p| p[0].epoch == p[1].epoch && t > p[0].at && t <= p[1].at)
+    };
     let mut local = None;
     for s in samples
         .iter()
-        .filter(|s| s.at > reset - minutes * 60 && s.at <= at)
+        .filter(|s| s.at > reset - minutes * 60 && s.at <= at && belongs(s.at))
     {
         *local.get_or_insert(0.) += s.tokens();
     }
-    let mut value = json!({"used":null,"capacity":null,"localTokens":local,"percent":percent,"reset":reset,"approximate":true,"intervals":rows.len(),"resets":rows.iter().map(|r|r.reset).collect::<BTreeSet<_>>().len(),"medianErrorPercent":null,"p90ErrorPercent":null,"validationCount":0,"reliability":"insufficient","method":"initial-ratio","priceIndependent":true,"reference":"uncached-input-equivalent","weights":null,"calibrationMode":"independent-v1","windowMinutes":minutes});
+    let mut value = json!({"used":null,"capacity":null,"localTokens":local,"percent":percent,"reset":reset,"approximate":true,"intervals":rows.len(),"resets":rows.iter().map(|r|r.reset).collect::<BTreeSet<_>>().len(),"medianErrorPercent":null,"p90ErrorPercent":null,"validationCount":0,"reliability":"insufficient","method":"initial-ratio","priceIndependent":true,"reference":"uncached-input-equivalent","weights":null,"calibrationMode":"independent-v1","windowMinutes":minutes,"accountScoped":!scope.is_empty(),"localUsageScope":if scope.is_empty(){"legacy-unattributed"}else{"observed-account-intervals"}});
     if rows.is_empty() {
         return value;
     }
@@ -361,7 +376,7 @@ fn estimate(
     let mut model_mix = BTreeMap::<String, f64>::new();
     for sample in samples
         .iter()
-        .filter(|s| s.at > reset - minutes * 60 && s.at <= at)
+        .filter(|s| s.at > reset - minutes * 60 && s.at <= at && belongs(s.at))
     {
         *model_mix.entry(sample.group.clone()).or_default() += sample.tokens();
     }
@@ -413,6 +428,26 @@ fn estimate(
         "learning"
     });
     value
+}
+fn account_estimate(samples: &[Sample], points: &[Point], quota: &Value, key: &str) -> Value {
+    let mut window = quota["value"][key].clone();
+    let Some(scope) = quota["value"]["account_key"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+    else {
+        return Value::Null;
+    };
+    if !window.is_object() {
+        return Value::Null;
+    }
+    window["_account_scope"] = json!(scope);
+    estimate(
+        samples,
+        points,
+        &window,
+        quota["value"]["plan_type"].as_str(),
+        quota["at"].as_i64().unwrap_or(0),
+    )
 }
 fn capacity_change(previous: &Value, current: &Value) -> Value {
     let Some((a, b)) = previous["capacity"]
@@ -510,9 +545,43 @@ impl Store {
                 CREATE TABLE IF NOT EXISTS interval_diagnostics(start INTEGER NOT NULL,at INTEGER NOT NULL,minutes INTEGER NOT NULL,reason TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(start,at,minutes,reason));
                 PRAGMA user_version=4; COMMIT;").map_err(|e|e.to_string())?;
         }
+        c.execute_batch("CREATE TABLE IF NOT EXISTS account_ticks(at INTEGER NOT NULL,scope TEXT NOT NULL,epoch INTEGER NOT NULL,PRIMARY KEY(at,scope));
+            CREATE TABLE IF NOT EXISTS account_points(at INTEGER NOT NULL,minutes INTEGER NOT NULL,reset INTEGER NOT NULL,percent REAL NOT NULL,plan TEXT NOT NULL,limit_id TEXT NOT NULL,scope TEXT NOT NULL,epoch INTEGER NOT NULL,PRIMARY KEY(at,minutes,reset,scope,limit_id));
+            CREATE TABLE IF NOT EXISTS account_calibrations(at INTEGER NOT NULL,minutes INTEGER NOT NULL,plan TEXT NOT NULL,limit_id TEXT NOT NULL,data TEXT NOT NULL,scope TEXT NOT NULL,PRIMARY KEY(at,minutes,plan,limit_id,scope));").map_err(|e|e.to_string())?;
         Ok(Self { connection: c })
     }
     fn point(&self, at: i64, q: &Value) -> Result<(), String> {
+        if let Some(scope) = q["account_key"].as_str().filter(|s| !s.is_empty()) {
+            let last:Option<(i64,String,i64)>=self.connection.query_row("SELECT at,scope,epoch FROM account_ticks WHERE at<=?1 ORDER BY at DESC,rowid DESC LIMIT 1",[at],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional().map_err(|e|e.to_string())?;
+            let epoch = last
+                .filter(|(t, s, _)| s == scope && at - *t <= 90)
+                .map(|(_, _, e)| e)
+                .unwrap_or(at);
+            self.connection
+                .execute(
+                    "INSERT OR IGNORE INTO account_ticks VALUES(?1,?2,?3)",
+                    params![at, scope, epoch],
+                )
+                .map_err(|e| e.to_string())?;
+            for key in ["primary", "secondary"] {
+                let w = &q[key];
+                if let (Some(m), Some(r), Some(p)) = (
+                    w["window_minutes"].as_i64(),
+                    w["resets_at"].as_i64(),
+                    w["used_percent"].as_f64(),
+                ) {
+                    if [300, 10080].contains(&m)
+                        && p.is_finite()
+                        && (0. ..=100.).contains(&p)
+                        && at > 0
+                        && r > at
+                    {
+                        self.connection.execute("INSERT OR IGNORE INTO account_points VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",params![at,m,r,p,q["plan_type"].as_str().unwrap_or(""),q["limit_id"].as_str().unwrap_or(""),scope,epoch]).map_err(|e|e.to_string())?;
+                    }
+                }
+            }
+            return Ok(());
+        }
         for key in ["primary", "secondary"] {
             let w = &q[key];
             if let (Some(m), Some(r), Some(p)) = (
@@ -549,6 +618,21 @@ impl Store {
             }
         }
         Ok(())
+    }
+    fn observe_account(&self, quota: &Value) -> Result<(), String> {
+        let Some(at) = quota["at"].as_i64().filter(|t| *t > 0) else {
+            return Ok(());
+        };
+        if quota["stale"].as_bool().unwrap_or(true) {
+            return Ok(());
+        }
+        if quota["value"]["account_key"].as_str().is_none() {
+            self.connection
+                .execute("INSERT OR IGNORE INTO account_ticks VALUES(?1,'',?1)", [at])
+                .map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+        self.point(at, &quota["value"])
     }
     fn collect(
         &mut self,
@@ -659,11 +743,6 @@ impl Store {
         for (at, q) in historical {
             self.point(at, &q)?;
         }
-        if !quota["stale"].as_bool().unwrap_or(true) {
-            if let Some(at) = quota["at"].as_i64() {
-                self.point(at, &quota["value"])?;
-            }
-        }
         for r in reader.cache.values_mut() {
             r.window_samples.clear();
             r.quota_history.clear();
@@ -675,52 +754,74 @@ impl Store {
     fn save_calibration(&self, data: &Observations, quota: &Value) -> Result<(), String> {
         let plan = quota["value"]["plan_type"].as_str();
         let at = quota["at"].as_i64().unwrap_or(0);
+        let scope = quota["value"]["account_key"].as_str().unwrap_or("");
+        let limit = quota["value"]["limit_id"].as_str().unwrap_or("");
         if at > 0 && !quota["stale"].as_bool().unwrap_or(true) {
             for key in ["primary", "secondary"] {
                 let w = &quota["value"][key];
-                let mut v = estimate(&data.samples, &data.points, w, plan, at);
+                let mut v = if scope.is_empty() {
+                    estimate(&data.samples, &data.points, w, plan, at)
+                } else {
+                    account_estimate(&data.samples, &data.points, quota, key)
+                };
                 if !v.is_object() {
                     continue;
                 }
-                let previous:Option<String>=self.connection.query_row("SELECT data FROM calibration_history WHERE minutes=?1 AND plan=?2 AND limit_id=?3 AND at<?4 ORDER BY at DESC LIMIT 1",params![w["window_minutes"].as_i64(),plan.unwrap_or(""),quota["value"]["limit_id"].as_str().unwrap_or(""),at],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
-                if let Some(previous) =
-                    previous.and_then(|v| serde_json::from_str::<Value>(&v).ok())
-                {
-                    v["changeAnalysis"] = capacity_change(&previous, &v);
+                let previous:Option<String>=if scope.is_empty(){
+                    self.connection.query_row("SELECT data FROM calibration_history WHERE minutes=?1 AND plan=?2 AND limit_id=?3 AND at<?4 ORDER BY at DESC LIMIT 1",params![w["window_minutes"].as_i64(),plan.unwrap_or(""),limit,at],|r|r.get(0)).optional()
+                }else{
+                    self.connection.query_row("SELECT data FROM account_calibrations WHERE minutes=?1 AND plan=?2 AND limit_id=?3 AND at<?4 AND scope=?5 ORDER BY at DESC LIMIT 1",params![w["window_minutes"].as_i64(),plan.unwrap_or(""),limit,at,scope],|r|r.get(0)).optional()
+                }.map_err(|e|e.to_string())?;
+                if let Some(old) = previous.and_then(|p| serde_json::from_str::<Value>(&p).ok()) {
+                    v["changeAnalysis"] = capacity_change(&old, &v);
                 }
-                if !v.is_object() {
-                    continue;
+                v["epoch"] = json!(data
+                    .points
+                    .iter()
+                    .filter(|p| p.scope == scope
+                        && p.minutes == w["window_minutes"].as_i64().unwrap_or(0)
+                        && p.at <= at)
+                    .max_by_key(|p| p.at)
+                    .map(|p| p.epoch));
+                v["localComplete"] = json!(data.unreadable == 0 && scope.is_empty());
+                if !scope.is_empty() {
+                    v["accountAttribution"]=json!("observed-active-account; concurrent or unobserved switches cannot be excluded");
                 }
-                v["localComplete"] = json!(data.unreadable == 0);
                 if data.unreadable > 0 && v["reliability"] == "validated" {
                     v["reliability"] = json!("limited");
                 }
-                self.connection
-                    .execute(
+                if scope.is_empty() {
+                    self.connection.execute(
                         "INSERT OR IGNORE INTO calibration_history VALUES(?1,?2,?3,?4,?5)",
                         params![
                             at,
                             w["window_minutes"].as_i64(),
                             plan.unwrap_or(""),
-                            quota["value"]["limit_id"].as_str().unwrap_or(""),
+                            limit,
                             v.to_string()
                         ],
                     )
-                    .map_err(|e| e.to_string())?;
+                } else {
+                    self.connection.execute(
+                        "INSERT OR IGNORE INTO account_calibrations VALUES(?1,?2,?3,?4,?5,?6)",
+                        params![
+                            at,
+                            w["window_minutes"].as_i64(),
+                            plan.unwrap_or(""),
+                            limit,
+                            v.to_string(),
+                            scope
+                        ],
+                    )
+                }
+                .map_err(|e| e.to_string())?;
             }
         }
         for minutes in [300, 10080] {
-            let identity = data
-                .points
-                .iter()
-                .filter(|p| p.minutes == minutes && (at == 0 || p.at <= at))
-                .max_by_key(|p| p.at)
-                .map(|p| p.limit.as_str())
-                .unwrap_or("");
             let same_group: Vec<_> = data
                 .points
                 .iter()
-                .filter(|p| p.limit == identity && (at == 0 || p.at <= at))
+                .filter(|p| p.scope == scope && p.limit == limit && p.at <= at)
                 .cloned()
                 .collect();
             let rows = intervals(&data.samples, &same_group, minutes, plan);
@@ -731,7 +832,7 @@ impl Store {
             for row in &rows {
                 let predicted = model.predict(&row.groups);
                 let residual = predicted - row.percent;
-                let evidence = json!({"noncached":row.x[0],"cached":row.x[1],"output":row.x[2],"groups":row.groups,"deltaPercent":row.percent,"predictedDeltaPercent":predicted,"residualPercentagePoints":residual,"roundingUncertaintyPercentagePoints":1.,"quality":if residual.abs()>row.percent*0.35+1. {"suspect_unobserved_usage_or_model_change"}else {"usable"},"weight":row.weight,"calibrationMode":"independent-v1"});
+                let evidence = json!({"noncached":row.x[0],"cached":row.x[1],"output":row.x[2],"groups":row.groups,"deltaPercent":row.percent,"predictedDeltaPercent":predicted,"residualPercentagePoints":residual,"roundingUncertaintyPercentagePoints":1.,"quality":if residual.abs()>row.percent*0.35+1.{"suspect_unobserved_usage_or_model_change"}else{"usable"},"weight":row.weight,"calibrationMode":"account-independent-v1"});
                 self.connection
                     .execute(
                         "INSERT OR IGNORE INTO observation_intervals VALUES(?1,?2,?3,?4,?5,?6,?7)",
@@ -741,7 +842,7 @@ impl Store {
                             row.reset,
                             minutes,
                             plan.unwrap_or(""),
-                            identity,
+                            format!("{scope}|{limit}"),
                             evidence.to_string()
                         ],
                     )
@@ -756,14 +857,16 @@ impl Store {
             let timeline: Vec<_> = data
                 .points
                 .iter()
-                .filter(|p| p.minutes == minutes)
+                .filter(|p| p.minutes == minutes && p.scope == scope)
                 .collect();
             for pair in timeline.windows(2) {
                 let (a, b) = (pair[0], pair[1]);
                 let lo = data.samples.partition_point(|s| s.at <= a.at);
                 let hi = data.samples.partition_point(|s| s.at <= b.at);
                 let n = prefix[hi] - prefix[lo];
-                let reason = if a.reset != b.reset {
+                let reason = if a.epoch != b.epoch {
+                    "account_switch_or_observation_gap"
+                } else if a.reset != b.reset {
                     "reset_or_window_shift"
                 } else if a.plan != b.plan {
                     "plan_change"
@@ -825,12 +928,14 @@ impl Store {
             .collect();
         let mut query = self
             .connection
-            .prepare("SELECT at,minutes,reset,percent,plan,limit_id FROM quota_points ORDER BY at")
+            .prepare("SELECT at,minutes,reset,percent,plan,limit_id,'',0 FROM quota_points UNION ALL SELECT at,minutes,reset,percent,plan,limit_id,scope,epoch FROM account_points ORDER BY at")
             .map_err(|e| e.to_string())?;
         let points = query
             .query_map([], |r| {
                 let plan: String = r.get(4)?;
                 Ok(Point {
+                    scope: r.get(6)?,
+                    epoch: r.get(7)?,
                     at: r.get(0)?,
                     minutes: r.get(1)?,
                     reset: r.get(2)?,
@@ -854,9 +959,15 @@ struct Observations {
     points: Vec<Point>,
     unreadable: usize,
 }
+enum Job {
+    Observe(Value),
+    Scan(Value),
+}
 pub struct Estimator {
     directory: PathBuf,
-    jobs: Sender<Value>,
+    account_scope: Option<String>,
+    observed_snapshot: Option<(i64, Option<String>)>,
+    jobs: Sender<Job>,
     incoming: Receiver<Result<Observations, String>>,
     scanning: bool,
     last_scan: i64,
@@ -885,25 +996,38 @@ impl Default for Estimator {
 }
 impl Estimator {
     pub fn new(directory: PathBuf) -> Self {
-        let (jobs, requests) = mpsc::channel::<Value>();
+        let (jobs, requests) = mpsc::channel::<Job>();
         let (outputs, incoming) = mpsc::channel();
         let worker_directory = directory.clone();
         std::thread::spawn(move || {
             let directory = worker_directory;
             let mut reader = data::Reader::new();
             let mut store = Store::open(&directory.join("quota-learning.sqlite3"));
-            while let Ok(quota) = requests.recv() {
-                let result = match &mut store {
-                    Ok(s) => s.collect(&mut reader, &quota),
-                    Err(e) => Err(e.clone()),
-                };
-                if outputs.send(result).is_err() {
-                    break;
+            while let Ok(job) = requests.recv() {
+                match job {
+                    Job::Observe(quota) => {
+                        if let Ok(s) = &store {
+                            if let Err(e) = s.observe_account(&quota) {
+                                store = Err(e);
+                            }
+                        }
+                    }
+                    Job::Scan(quota) => {
+                        let result = match &mut store {
+                            Ok(s) => s.collect(&mut reader, &quota),
+                            Err(e) => Err(e.clone()),
+                        };
+                        if outputs.send(result).is_err() {
+                            break;
+                        }
+                    }
                 }
             }
         });
         Self {
             directory,
+            account_scope: None,
+            observed_snapshot: None,
             jobs,
             incoming,
             scanning: false,
@@ -964,9 +1088,12 @@ impl Estimator {
             "week" => 10080,
             _ => return Err("Unknown history metric".into()),
         };
-        let mut q=c.prepare("SELECT at,plan,limit_id,data FROM calibration_history WHERE minutes=?1 ORDER BY at").map_err(|e|e.to_string())?;
+        let Some(scope) = self.account_scope.as_deref() else {
+            return Ok(json!({"fits":[],"points":[],"accountVerified":false}));
+        };
+        let mut q=c.prepare("SELECT at,plan,limit_id,data FROM account_calibrations WHERE minutes=?1 AND scope=?2 ORDER BY at").map_err(|e|e.to_string())?;
         let rows = q
-            .query_map([minutes], |r| {
+            .query_map(params![minutes, scope], |r| {
                 Ok((
                     r.get::<_, i64>(0)?,
                     r.get::<_, String>(1)?,
@@ -985,8 +1112,8 @@ impl Estimator {
                 fits.push(v);
             }
         }
-        let mut q=c.prepare("SELECT at,reset,percent,plan,limit_id FROM quota_points WHERE minutes=?1 ORDER BY at").map_err(|e|e.to_string())?;
-        let rows=q.query_map([minutes],|r|Ok(json!({"at":r.get::<_,i64>(0)?,"reset":r.get::<_,i64>(1)?,"percent":r.get::<_,f64>(2)?,"plan":r.get::<_,String>(3)?,"limitId":r.get::<_,String>(4)?}))).map_err(|e|e.to_string())?;
+        let mut q=c.prepare("SELECT at,reset,percent,plan,limit_id,epoch FROM account_points WHERE minutes=?1 AND scope=?2 ORDER BY at").map_err(|e|e.to_string())?;
+        let rows=q.query_map(params![minutes,scope],|r|Ok(json!({"at":r.get::<_,i64>(0)?,"reset":r.get::<_,i64>(1)?,"percent":r.get::<_,f64>(2)?,"plan":r.get::<_,String>(3)?,"limitId":r.get::<_,String>(4)?,"epoch":r.get::<_,i64>(5)?}))).map_err(|e|e.to_string())?;
         let points = rows
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?;
@@ -1004,28 +1131,39 @@ impl Estimator {
         self.update(quota)
     }
     pub fn diagnostics(&self, quota: &Value) -> Value {
-        json!({"samples":self.samples.len(),"points":self.points.len(),"unreadable":self.unreadable,"error":self.error,"primary":estimate(&self.samples,&self.points,&quota["value"]["primary"],quota["value"]["plan_type"].as_str(),quota["at"].as_i64().unwrap_or(0)),"secondary":estimate(&self.samples,&self.points,&quota["value"]["secondary"],quota["value"]["plan_type"].as_str(),quota["at"].as_i64().unwrap_or(0))})
+        json!({"samples":self.samples.len(),"points":self.points.len(),"unreadable":self.unreadable,"error":self.error,"primary":account_estimate(&self.samples,&self.points,quota,"primary"),"secondary":account_estimate(&self.samples,&self.points,quota,"secondary")})
     }
     pub fn update(&mut self, quota: &Value) -> Value {
+        let account_changed =
+            self.account_scope.as_deref() != quota["value"]["account_key"].as_str();
+        if account_changed {
+            self.last_scan = 0;
+        }
+        self.account_scope = quota["value"]["account_key"].as_str().map(str::to_owned);
+        let observation = quota["at"]
+            .as_i64()
+            .map(|at| (at, self.account_scope.clone()));
+        if observation.is_some() && observation != self.observed_snapshot {
+            self.observed_snapshot = observation;
+            let _ = self.jobs.send(Job::Observe(quota.clone()));
+        }
         let now = chrono::Utc::now().timestamp();
         if let Ok(v) = self.incoming.try_recv() {
             self.accept(v);
         }
-        if now - self.last_scan >= 30 && !self.scanning {
+        if (now - self.last_scan >= 30 || account_changed) && !self.scanning {
             self.last_scan = now;
-            self.scanning = self.jobs.send(quota.clone()).is_ok();
+            self.scanning = self.jobs.send(Job::Scan(quota.clone())).is_ok();
         }
-        if now - self.calibration_at >= 30 || self.cached["quotaAt"] != quota["at"] {
+        if now - self.calibration_at >= 30
+            || self.cached["quotaAt"] != quota["at"]
+            || self.cached["accountScope"] != quota["value"]["account_key"]
+        {
             self.calibration_at = now;
-            let v = &quota["value"];
-            let at = quota["at"].as_i64().unwrap_or(0);
-            let plan = v["plan_type"].as_str();
-            self.cached = json!({"quotaAt":quota["at"],"primary":estimate(&self.samples,&self.points,&v["primary"],plan,at),"secondary":estimate(&self.samples,&self.points,&v["secondary"],plan,at)});
+            self.cached = json!({"quotaAt":quota["at"],"accountScope":quota["value"]["account_key"],"primary":account_estimate(&self.samples,&self.points,quota,"primary"),"secondary":account_estimate(&self.samples,&self.points,quota,"secondary")});
             for key in ["primary", "secondary"] {
                 if self.cached[key].is_object() {
-                    self.cached[key]["localComplete"] = json!(
-                        self.unreadable == 0 && self.error.is_none() && !self.samples.is_empty()
-                    );
+                    self.cached[key]["localComplete"] = json!(false);
                     if self.cached[key]["reliability"] == "validated"
                         && (self.unreadable > 0
                             || self.cached[key]["medianErrorPercent"]
@@ -1057,6 +1195,8 @@ mod tests {
             let reset = start + minutes * 60;
             let mut percent = 0.;
             points.push(Point {
+                scope: String::new(),
+                epoch: 0,
                 at: start + 1,
                 minutes,
                 reset,
@@ -1085,6 +1225,8 @@ mod tests {
                     x,
                 });
                 points.push(Point {
+                    scope: String::new(),
+                    epoch: 0,
                     at,
                     minutes,
                     reset,
@@ -1097,6 +1239,149 @@ mod tests {
             window = json!({"window_minutes":minutes,"resets_at":reset,"used_percent":percent});
         }
         (samples, points, window, last_at)
+    }
+    #[test]
+    fn observed_account_transitions_are_queued_during_slow_scans() {
+        let (jobs, requests) = mpsc::channel();
+        let (_outputs, incoming) = mpsc::channel();
+        let mut estimator = Estimator {
+            directory: PathBuf::new(),
+            account_scope: None,
+            observed_snapshot: None,
+            jobs,
+            incoming,
+            scanning: true,
+            last_scan: 0,
+            samples: vec![],
+            points: vec![],
+            calibration_at: 0,
+            cached: Value::Null,
+            error: None,
+            unreadable: 0,
+        };
+        for (at, scope) in [(1, Some("a")), (31, Some("b")), (61, None), (91, Some("a"))] {
+            estimator.update(&json!({"at":at,"stale":false,"value":{"account_key":scope}}));
+        }
+        let scopes: Vec<_> = requests
+            .try_iter()
+            .map(|job| match job {
+                Job::Observe(q) => q["value"]["account_key"].clone(),
+                Job::Scan(_) => panic!("busy scan must not duplicate"),
+            })
+            .collect();
+        assert_eq!(
+            scopes,
+            vec![json!("a"), json!("b"), Value::Null, json!("a")]
+        );
+    }
+    #[test]
+    fn unknown_account_observation_breaks_an_existing_account_epoch() {
+        let path = std::env::temp_dir().join(format!(
+            "qufu-unknown-{}.sqlite3",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        let store = Store::open(&path).unwrap();
+        let q = |at, scope: Value| json!({"at":at,"stale":false,"value":{"account_key":scope,"primary":{"window_minutes":10080,"resets_at":604800,"used_percent":5.}}});
+        store.observe_account(&q(1, json!("a"))).unwrap();
+        store.observe_account(&q(31, Value::Null)).unwrap();
+        store.observe_account(&q(61, json!("a"))).unwrap();
+        let epochs: Vec<i64> = store
+            .connection
+            .prepare("SELECT epoch FROM account_points WHERE scope='a' ORDER BY at")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(epochs, vec![1, 61]);
+        drop(store);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn account_switches_gaps_and_unknown_history_never_cross_train() {
+        let path = std::env::temp_dir().join(format!(
+            "qufu-accounts-{}.sqlite3",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        let store = Store::open(&path).unwrap();
+        let sample = |id: &str, at| Sample {
+            id: id.into(),
+            at,
+            group: "model|standard".into(),
+            x: [10000., 20000., 10000.],
+        };
+        let samples = vec![
+            sample("a1", 50),
+            sample("b1", 110),
+            sample("a2", 170),
+            sample("gap", 300),
+        ];
+        let quota = |account: &str, at, percent| json!({"at":at,"stale":false,"value":{"account_key":account,"plan_type":"plus","limit_id":"codex","primary":{"window_minutes":10080,"resets_at":604800,"used_percent":percent}}});
+        for (a, t, p) in [
+            ("a", 1, 0.),
+            ("a", 61, 5.),
+            ("b", 91, 0.),
+            ("b", 121, 10.),
+            ("a", 151, 10.),
+            ("a", 181, 15.),
+            ("a", 400, 25.),
+        ] {
+            store.point(t, &quota(a, t, p)["value"]).unwrap();
+        }
+        store.point(30,&json!({"plan_type":"plus","limit_id":"codex","primary":{"window_minutes":10080,"resets_at":604800,"used_percent":90}})).unwrap();
+        let data = store.load(0).unwrap();
+        let ea = account_estimate(&samples, &data.points, &quota("a", 400, 25.), "primary");
+        assert_eq!(ea["intervals"], 2, "{ea}");
+        assert_eq!(ea["localTokens"], 80000.);
+        assert!((ea["capacity"].as_f64().unwrap() - 800000.).abs() < 1.);
+        let eb = account_estimate(&samples, &data.points, &quota("b", 400, 10.), "primary");
+        assert_eq!(eb["intervals"], 1, "{eb}");
+        assert_eq!(eb["localTokens"], 40000.);
+        assert!((eb["capacity"].as_f64().unwrap() - 400000.).abs() < 1.);
+        let mut missing = quota("a", 400, 25.);
+        missing["value"]["account_key"] = Value::Null;
+        assert!(account_estimate(&samples, &data.points, &missing, "primary").is_null());
+        assert!(account_estimate(
+            &samples,
+            &data.points,
+            &quota("new-account", 400, 25.),
+            "primary"
+        )["capacity"]
+            .is_null());
+        store
+            .save_calibration(
+                &Observations {
+                    samples,
+                    points: data.points,
+                    unreadable: 0,
+                },
+                &quota("a", 400, 25.),
+            )
+            .unwrap();
+        drop(store);
+        let reopened = Store::open(&path).unwrap();
+        let saved: String = reopened
+            .connection
+            .query_row(
+                "SELECT data FROM account_calibrations WHERE scope='a'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&saved).unwrap()["intervals"],
+            2
+        );
+        assert_eq!(
+            reopened
+                .connection
+                .query_row("SELECT COUNT(*) FROM quota_points", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        drop(reopened);
+        std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn independent_weekly_fit_and_legacy_history_survive_restart() {
@@ -1197,6 +1482,8 @@ mod tests {
         }];
         let points = vec![
             Point {
+                scope: String::new(),
+                epoch: 0,
                 at: 1,
                 minutes: 300,
                 reset: 18000,
@@ -1205,6 +1492,8 @@ mod tests {
                 limit: "codex".into(),
             },
             Point {
+                scope: String::new(),
+                epoch: 0,
                 at: 100,
                 minutes: 300,
                 reset: 18000,
@@ -1294,6 +1583,8 @@ mod tests {
                 .into_iter()
                 .enumerate()
                 .map(|(i, percent)| Point {
+                    scope: String::new(),
+                    epoch: 0,
                     at: 1 + i as i64 * 30,
                     minutes: 300,
                     reset: 18000,
@@ -1329,6 +1620,8 @@ mod tests {
             x: [10000000., 10000000., 10000000.],
         });
         points.push(Point {
+            scope: String::new(),
+            epoch: 0,
             at: at + 100,
             minutes: 300,
             reset: at + 18000,
@@ -1496,6 +1789,8 @@ mod tests {
         ]
         .into_iter()
         .map(|(at, reset, percent)| Point {
+            scope: String::new(),
+            epoch: 0,
             at,
             reset,
             percent,
@@ -1565,8 +1860,25 @@ mod tests {
             120
         );
         let history = estimator.history("five", None).unwrap();
-        assert_eq!(history["points"][0]["percent"], 5.);
-        assert_eq!(history["fits"].as_array().unwrap().len(), 1);
+        assert!(history["points"].as_array().unwrap().is_empty());
+        assert_eq!(history["accountVerified"], false);
+        let preserved = Store::open(&dir.join("quota-learning.sqlite3")).unwrap();
+        assert_eq!(
+            preserved
+                .connection
+                .query_row("SELECT percent FROM quota_points LIMIT 1", [], |r| r
+                    .get::<_, f64>(0))
+                .unwrap(),
+            5.
+        );
+        assert_eq!(
+            preserved
+                .connection
+                .query_row("SELECT COUNT(*) FROM calibration_history", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
         drop(estimator);
     }
     #[test]

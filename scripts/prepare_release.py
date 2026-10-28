@@ -35,7 +35,7 @@ for suffix, targets in [('_x64-setup.exe', ['windows-x86_64', 'windows-x86_64-ns
     signature = signature_file.read_text(encoding='utf-8-sig').strip()
     if not signature:
         raise SystemExit(f'Empty signature for {package.name}')
-    info = {'url': f'https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/download/v{args.version}/{quote(package.name)}', 'signature': signature}
+    info = {'url': f'https://github.com/qufu-io/qufu-codex-dashboard/releases/download/v{args.version}/{quote(package.name)}', 'signature': signature}
     for target in targets:
         platforms[target] = info
 manifest = {'version': args.version, 'notes': f'Qufu Codex Dashboard {args.version} · alper@qufu.io', 'pub_date': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'platforms': platforms}

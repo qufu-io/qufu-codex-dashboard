@@ -425,7 +425,7 @@ test('public README screenshot uses illustrative data without personal informati
  await expect(page.locator('#sessionTitle')).toHaveText('Example Workspace - Dashboard');
  await expect(page.locator('#workspace')).toHaveText('C:\\Projects\\Example');
  expect((await page.locator('#app').innerText()).replaceAll('alper@qufu.io','')).not.toMatch(/alper|GenA|IOG|Users|Test ana/);
- await page.locator('#app').screenshot({path:'artifacts/dashboard-public-1.0.3.png'});
+ await page.locator('#app').screenshot({path:'artifacts/dashboard-public-1.0.4.png'});
 });
 
 
@@ -446,4 +446,32 @@ test('version, updates and author stay visible without Settings',async({page})=>
  await expect(page.locator('.author')).toBeVisible();
  await expect(page.locator('#checkUpdate')).toHaveText('Güncellemeleri kontrol et');
  await fitWindow(page);
+});
+
+
+test('weekly-only accounts render the weekly window and never invent a five-hour quota',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{
+  const v=await base(cmd,args);if(cmd==='snapshot'){v.quota.value={plan_type:'plus',account_key:'a'.repeat(64),primary:{used_percent:16,window_minutes:10080,resets_at:Math.floor(Date.now()/1000)+604000},secondary:null};}return v;
+ };});
+ await page.locator('#refresh').click();
+ await expect(page.locator('#five .limit-top strong')).toHaveText('—');
+ await expect(page.locator('#week .limit-top strong')).toHaveText('%16');
+ await expect(page.getByRole('progressbar',{name:'Weekly account limit'})).toHaveAttribute('aria-valuenow','16');
+ await page.locator('#sessionTitle').click();await page.locator('[data-id="test-main"]').click();
+ await page.locator('#detailsToggle').click();await fitPanel(page);
+ await expect(page.locator('.detail-facts')).toContainText('Quota account');
+ await expect(page.locator('.detail-facts')).toContainText('aaaaaaaaaaaa');
+});
+
+
+test('account quota history never joins different observation epochs',async({page})=>{
+ await page.addInitScript(()=>{
+  (window as any).__QUFU_HISTORY__={metric:'week',selected:null,language:'en',theme:'dark'};
+  const points=[{at:100,reset:604800,percent:10,plan:'plus',limitId:'codex',epoch:1},{at:130,reset:604800,percent:11,plan:'plus',limitId:'codex',epoch:1},{at:160,reset:604800,percent:12,plan:'plus',limitId:'codex',epoch:160}];
+  (window as any).__TAURI_INTERNALS__={invoke:async()=>({points,fits:[]})};
+ });
+ await page.goto('http://127.0.0.1:5173/?history=1');
+ await page.locator('#historyView').selectOption('percent');
+ await expect(page.locator('.history-mark')).toHaveCount(3);
+ await expect(page.locator('.history-line')).toHaveCount(1);
 });

@@ -26,6 +26,6 @@ Henüz düzeltilmemiş açıkları public issue veya PR içinde paylaşma. Kimli
 
 ## Download integrity / İndirme bütünlüğü
 
-Use the [official releases](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases). SHA256SUMS.txt accompanies each release. The in-app updater verifies package signatures and their signed version before installation. These updater signatures are distinct from operating-system code-signing certificates.
+Use the [official releases](https://github.com/qufu-io/qufu-codex-dashboard/releases). SHA256SUMS.txt accompanies each release. The in-app updater verifies package signatures and their signed version before installation. These updater signatures are distinct from operating-system code-signing certificates.
 
-[Resmi sürümleri](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases) kullan. Her sürümde SHA256SUMS.txt bulunur. Uygulama içi güncelleyici kurulum öncesinde paket imzasını ve imzalanmış sürümü doğrular. Bu imzalar işletim sisteminin kod imzalama sertifikalarıyla aynı şey değildir.
+[Resmi sürümleri](https://github.com/qufu-io/qufu-codex-dashboard/releases) kullan. Her sürümde SHA256SUMS.txt bulunur. Uygulama içi güncelleyici kurulum öncesinde paket imzasını ve imzalanmış sürümü doğrular. Bu imzalar işletim sisteminin kod imzalama sertifikalarıyla aynı şey değildir.

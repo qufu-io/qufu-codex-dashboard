@@ -2,6 +2,15 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
+## 1.0.4 — 2026-10-29
+
+- Isolate quota observations, history and independent hourly/weekly models by a pseudonymous verified account identity.
+- Exclude account transitions, unidentified historical observations and long observation gaps from account learning; retain old data.
+- Support weekly-only accounts without inventing a five-hour quota; show a short local account code in Details.
+- Consolidate public source, downloads and update endpoints into this repository. Existing users must install 1.0.4 manually before removing the legacy downloads repository.
+
+See [bilingual release notes](docs/CHANGES-1.0.4.md).
+
 ## 1.0.3 — 2026-10-28
 
 - Learn five-hour and weekly N/C/O quota weights independently; remove the weekly conversion ratio and shared coefficients.

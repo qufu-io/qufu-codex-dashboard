@@ -2,19 +2,19 @@
 
 Understand your Codex usage in one compact desktop window. Track local sessions, complete tasks, API-equivalent costs and account limits — with a clear distinction between measured data and estimates.
 
-[![Source checks](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/qufu-io/qufu-codex-dashboard-releases)](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/latest)
+[![Source checks](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/qufu-io/qufu-codex-dashboard)](https://github.com/qufu-io/qufu-codex-dashboard/releases/latest)
 
-**Open source · MIT · Version 1.0.3 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
+**Open source · MIT · Version 1.0.4 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
 
-[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.3](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.3) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
+[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.4](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.4) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 
 <p align="center">
-  <img src="docs/images/dashboard-1.0.3.png" width="300" alt="Qufu Codex Dashboard 1.0.3 with illustrative workspace and task measurements">
+  <img src="docs/images/dashboard-1.0.4.png" width="300" alt="Qufu Codex Dashboard 1.0.4 with illustrative workspace and task measurements">
 </p>
 
 *Illustrative data; no personal session information. / Örnek veriler; kişisel session bilgisi içermez.*
 
-[What’s new / Yenilikler](docs/CHANGES-1.0.3.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
+[What’s new / Yenilikler](docs/CHANGES-1.0.4.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
 
 | Measurement / Ölçüm | Source and meaning / Kaynak ve anlam |
 | --- | --- |
@@ -43,14 +43,14 @@ Qufu Codex Dashboard, Codex kullanımını küçük bir masaüstü penceresinden
 
 Uygulama **ücretsiz ve MIT lisanslı açık kaynaklıdır**. [Kaynak kodunu](https://github.com/qufu-io/qufu-codex-dashboard) inceleyebilir, değiştirebilir ve lisans koşullarıyla paylaşabilirsin. İndirme için GitHub hesabı gerekmez.
 
-1. [1.0.3 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.3).
+1. [1.0.4 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.4).
 2. **Assets** bölümünü genişlet.
 3. İşletim sistemine uygun paketi indir:
 
 | Platform | Paket | Kurulum |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Dosyayı çalıştır; kurulumdan sonra Başlat menüsünden aç. |
-| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.3.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
+| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.4.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./indirilen-dosya.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x indirilen-dosya.AppImage` ardından dosyayı çalıştır. |
 
@@ -71,6 +71,11 @@ Varsayılanlar: İngilizce, %33 şeffaflık, 300 piksel genişliğinde kompakt g
 
 ### Veriler ve hesaplama
 
+**Birden fazla hesap:** Kota öğrenimi resmî limit yanıtının hesap kimliğiyle ayrılır. Kimlik yerel SHA-256 koduna dönüştürülür; e-posta veya auth dosyası okunmaz. Hesap geçişi ve 90 saniyeden uzun gözlem boşluğu yeni aralık başlatır. Eski kimliksiz kayıtlar korunur ancak yeni hesap modeline atanmaz. Sadece haftalık limit varsa haftalık gösterge ve bağımsız haftalık model çalışır. Kimlik gelmezse yüzde görünür, kapasite kalibrasyonu yapılmaz. Aynı anda farklı hesapların kullanımı veya gözlenemeyen hızlı geçişler kesin ayrılamaz.
+
+Session toplamı aynı sohbetin tüm geçmişidir; hesap başına kota tüketimi değildir. Kota grafikleri mevcut doğrulanmış hesaba aittir.
+
+
 - Yerel Codex metadata ve session kayıtları salt okunur kullanılır. `CODEX_HOME` ayarlıysa bu klasör, yoksa `~/.codex` okunur. Liste keşfinde tarih sınırı veya elle yazılmış session adları yoktur.
 - Cache, Input'un; reasoning, Output'un alt kümesidir. Toplamda tekrar eklenmez. Ana session ve subagent tüketimleri ayrı sunulur.
 - Bilinmeyen kullanım veya fiyat sıfır gösterilmez. Son istek bir **kullanıcı görev turunun tamamıdır**; devam eden, tamamlanan ve kesilen görevler ayrılır. Farklı modellerin USD maliyetleri yanıt bazında hesaplanır. CLI Used = Input − Cache + Output; Raw Total = Input + Output.
@@ -84,7 +89,7 @@ Varsayılanlar: İngilizce, %33 şeffaflık, 300 piksel genişliğinde kompakt g
 
 Uygulama konuşmaları ve kullanım kayıtlarını bir dashboard sunucusuna yüklemez; kimlik doğrulama token dosyalarını okumaz. Ağ erişimi resmi fiyat kontrolü, kurulu Codex'in hesap limit okuyucusu ve GitHub güncelleme kontrolü/indirmesi içindir.
 
-Ayarlar → **Güncellemeleri kontrol et** ile yeni sürümü sorgulayabilirsin. Yeni sürüm bulunduğunda **İndir ve kur** düğmesine tıklaman gerekir; kurulum kendiliğinden başlamaz. Paket imzası ve imzalanmış sürüm numarası doğrulanır. Windows kurulum sırasında kapanabilir; Linux'ta uygulama yeniden başlatılır. GitHub düğmesiyle tüm sürümleri tarayıcıda açabilirsin. İnternet veya yayın manifesti erişilemezse kontrol başarısız olarak gösterilir; uygulama güncelmiş gibi davranmaz.
+Ana pencere → **Güncellemeleri kontrol et** ile yeni sürümü sorgulayabilirsin. Yeni sürüm bulunduğunda **İndir ve kur** düğmesine tıklaman gerekir; kurulum kendiliğinden başlamaz. Paket imzası ve imzalanmış sürüm numarası doğrulanır. Windows kurulum sırasında kapanabilir; Linux'ta uygulama yeniden başlatılır. GitHub düğmesiyle tüm sürümleri tarayıcıda açabilirsin. İnternet veya yayın manifesti erişilemezse kontrol başarısız olarak gösterilir; uygulama güncelmiş gibi davranmaz.
 
 Kaynak kodu ve projenin özgün varlıkları [MIT lisansı](LICENSE) altındadır. Üçüncü taraf bileşenlerin kendi lisansları korunur. [Lisans geçişi](docs/LICENSING.md), eski 1.0 kurulum paketlerinde görünen freeware metnini de açıklar.
 
@@ -108,12 +113,12 @@ Qufu Codex Dashboard is a compact Tauri 2 desktop monitor for local Codex usage 
 
 The application is **free and open source under MIT**. [Browse, modify and contribute to the source](https://github.com/qufu-io/qufu-codex-dashboard). Downloads are public and require no GitHub account.
 
-Open [Release 1.0.3 → Assets](https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/tag/v1.0.3) and select your package:
+Open [Release 1.0.4 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.4) and select your package:
 
 | Platform | Package | Installation |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Run the installer, then open the app from the Start menu. |
-| Windows x64 portable | `QufuCodexDashboard-1.0.3.exe` | Run the executable; WebView2 must be installed. |
+| Windows x64 portable | `QufuCodexDashboard-1.0.4.exe` | Run the executable; WebView2 must be installed. |
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./downloaded-file.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x downloaded-file.AppImage`, then run it. |
 
@@ -137,10 +142,16 @@ Account percentages come from the installed Codex `account/rateLimits/read` inte
 
 The app does not upload conversations or usage logs to a dashboard server and does not read authentication token files. Network activity is limited to public pricing requests, the installed Codex account reader, and GitHub update checks/downloads.
 
+### Account identity and calibration
+
+Quota learning is isolated by the explicit account ID in the official rate-limit response. The ID is converted to a local SHA-256 pseudonym; the dashboard reads neither email nor authentication files. Observed account switches and gaps over 90 seconds interrupt training. Unidentified historical records are retained but are not assigned to a newly identified account. Weekly-only accounts keep their weekly indicator and independent model. Missing identity leaves official percentages visible and capacity calibration unavailable. Concurrent accounts or unobserved rapid switches cannot be reliably attributed. Session totals still cover the entire local conversation; quota charts cover the current verified account.
+
 ### Updates and license
 
 
-Open Settings → **Check for updates**. When a newer release is found, click **Download and install** to approve installation. The package signature and signed version are verified first. Windows may close during installation; Linux restarts the app afterward. The GitHub button opens the releases page. A failed network or missing release manifest is reported as a failed check, never as proof that the app is current.
+Click **Check for updates** in the main window. When a newer release is found, click **Download and install** to approve installation. The package signature and signed version are verified first. Windows may close during installation; Linux restarts the app afterward. The GitHub button opens the releases page. A failed network or missing release manifest is reported as a failed check, never as proof that the app is current.
+
+Source code and installers now share this repository. Version 1.0.4 uses this repository for update checks. Older installations still point at the previous downloads repository and should install 1.0.4 manually before that repository is removed.
 
 The source and original project assets are available under the [MIT license](LICENSE). Third-party components retain their own licenses. See the [license transition](docs/LICENSING.md) for the legacy freeware wording still embedded in previously published 1.0 installers.
 
@@ -159,7 +170,7 @@ npm run tauri -- dev
 
 See the [measurement contract](docs/MEASUREMENTS.md), [privacy policy](docs/PRIVACY.md) and [version history](CHANGELOG.md).
 
-CI runs frontend, Rust and synthetic UI checks on Windows and Ubuntu. Pull requests do not receive signing secrets. Official signed installers and updates remain in the [downloads repository](https://github.com/qufu-io/qufu-codex-dashboard-releases). See [release process](docs/RELEASE.md).
+CI runs frontend, Rust and synthetic UI checks on Windows and Ubuntu. Pull requests do not receive signing secrets. Official signed installers and updates remain in the [downloads repository](https://github.com/qufu-io/qufu-codex-dashboard). See [release process](docs/RELEASE.md).
 
 ## Community / Topluluk
 

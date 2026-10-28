@@ -1,6 +1,6 @@
 [package]
 name = "qufu-codex-dashboard"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["alper@qufu.io"]
 license = "MIT"
 repository = "https://github.com/qufu-io/qufu-codex-dashboard"
@@ -20,6 +20,7 @@ tauri-plugin-window-state = "2"
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 rusqlite = { version = "0.38", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }

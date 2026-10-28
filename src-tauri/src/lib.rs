@@ -74,9 +74,7 @@ async fn snapshot(
         .map_err(|_| "Veri okuyucu kilidi açılamadı".to_string())?
         .snapshot(selected.as_deref())?;
     if let Some(q) = feed.snapshot() {
-        if q["at"].as_i64() > value["quota"]["at"].as_i64() {
-            value["quota"] = q;
-        }
+        value["quota"] = q;
     }
     let estimates = estimator
         .lock()

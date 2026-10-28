@@ -1,5 +1,6 @@
 export type Language = 'tr' | 'en';
 const en: Record<string, string> = {
+  'Kota hesabı':'Quota account','Doğrulanamadı':'Unverified','Hesap kimliği doğrulanamazsa hesaplar arası kalibrasyon yapılmaz.':'Without a verified account identity, quota calibration is unavailable.','Hesap gözlem aralıklarıyla sınırlı; eşzamanlı hesap kullanımını ayıramaz.':'Limited to observed account intervals; concurrent account usage cannot be separated.',
   'validated':'Validated','limited':'Limited accuracy','learning':'Learning','unstable':'Unstable','insufficient':'Insufficient evidence',
   'estimated_capacity_change':'Estimated capacity change','within_model_error':'Within model error','weights_relearned':'Weights recalibrated','ratio_recalibration':'Weekly ratio recalibrated','usage_mix_changed':'Usage mix changed',
   'Görevle eşleşen subagent tüketimi':'Subagent usage linked to this task','Ana görev toplamına eklenmez; eksik ilişkiler dışarıda kalır.':'Separate from the main task; missing links are excluded.',

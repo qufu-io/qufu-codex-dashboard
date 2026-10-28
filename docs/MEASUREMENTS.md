@@ -42,6 +42,16 @@ Validation uses earlier non-overlapping reset windows with a 30-second embargo. 
 
 Capacity change diagnostics compare the fixed reference, model/tier/effort mix, within-window learned weight ratios and empirical error. They label estimated changes or recalibration effects. `backendChangeVerified` is always false: these observations cannot prove an unannounced backend policy change.
 
+## Account isolation (1.0.4)
+
+The authoritative `account/rateLimits/read` response optionally supplies `accountId`. Only this explicit ID is SHA-256 pseudonymized for local account scopes. No email, auth-file contents or percent/reset heuristics identify an account. A new read-only App Server is used each poll so the feed does not retain the previous account's credentials across login switches. If identity is unavailable, official percentages remain visible but account capacity is not calculated.
+
+New additive `account_ticks`, `account_points` and `account_calibrations` tables preserve all older data. Points have a scope and continuity epoch. Each observed account change, unidentified read, or gap exceeding 90 seconds interrupts continuity; training never crosses that boundary. All verified intervals for the same account may contribute to that account's own hourly/weekly fit, even when the account returns later. Token subtotals include only local usage bracketed by that account's continuous observations. The initial N/C/O weights are equal; at least three observed percentage points are accumulated before fitting an interval to reduce integer-percent quantization noise. Reset/decreasing percentages invalidate the interval rather than count as spending.
+
+Old snapshots and calibration fits without identity remain stored but cannot be attributed retrospectively to an account. Account quota charts use the currently verified scope. Session/turn totals remain the whole conversation and can span multiple accounts; they are not relabeled as per-account totals. Concurrent account use, a rapid switch-and-return between polls, cloud and other-device use cannot be excluded by local observations. Therefore local attributed usage is a partial observed-interval subtotal, and learned capacity remains approximate, never a certified backend allowance.
+
+Weekly-only accounts use the weekly duration (10,080 minutes), wherever the backend places it in primary/secondary. No five-hour point is synthesized and the weekly model does not depend on five-hour observations.
+
 ## Storage and graphs
 
 The private `quota-learning.sqlite3` schema migrates additively to version 4. Existing usage, points and cursors remain. Before migrating a populated database, SQLite `VACUUM INTO` creates a consistent `pre-v4-<timestamp>.sqlite3` backup. Older cursors are replayed to recover turn facts. One-to-one supersession excludes verified duplicate legacy rows from fitting without deleting the original records.

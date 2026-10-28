@@ -8,6 +8,8 @@ Qufu Codex Dashboard is a local desktop monitor. It has no analytics service and
 
 The app reads Codex metadata, local SQLite state and rollout files without modifying them. `CODEX_HOME` selects the source directory; otherwise it uses `~/.codex`. Some rollout formats contain conversation text, but the dashboard's history stores identifiers, timestamps, model metadata and numeric measurements, not message bodies. Authentication token files are not read directly by the dashboard.
 
+When the official rate-limit response supplies an account ID, the app derives a local SHA-256 pseudonym and stores numeric quota observations/calibration by that key. It does not store the raw account ID, email or authentication tokens. A short pseudonymous account code appears in Details. Old unidentified observations are retained separately; they are not guessed into an account. The observed active-account timeline cannot prove which account generated concurrent or unobserved usage.
+
 Preferences, cached prices and the dashboard's own `quota-learning.sqlite3` live in the operating system's application-data/config directories. The database contains account percentage snapshots, token observations, task facts and learned calibration history. Schema upgrades preserve records and back up populated older databases. Uninstalling the app may leave these files; removing them manually deletes the local preferences/history. Source Codex data is separate and should not be removed to reset the dashboard.
 
 ### Network access
@@ -36,3 +38,6 @@ Ağ erişimi resmî OpenAI fiyatları, kurulu Codex'in hesap limit okuyucusu ve 
 Public issue'lara ham session logu, kimlik dosyası veya veritabanı ekleme. Sentetik örnek ve anonimleştirilmiş görsel kullan. Güvenlik bildirimleri için [özel kanalı](../SECURITY.md) kullan.
 
 Maintainer / İletişim: [alper@qufu.io](mailto:alper@qufu.io).
+
+
+1.0.4: Resmî yanıtın hesap ID’si yerel SHA-256 koduna dönüştürülür; ham ID, e-posta ve auth tokenı saklanmaz. Kota gözlemleri bu kodla ayrılır. Eski kimliksiz geçmiş korunur; hesaba tahminen atanmaz. Ayrıntılarda kısa yerel hesap kodu görünür.

@@ -8,9 +8,8 @@ use tauri::State;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::{Update, UpdaterExt};
 
-const RELEASES: &str = "https://github.com/qufu-io/qufu-codex-dashboard-releases/releases";
-const DOWNLOAD_PREFIX: &str =
-    "https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/download/";
+const RELEASES: &str = "https://github.com/qufu-io/qufu-codex-dashboard/releases";
+const DOWNLOAD_PREFIX: &str = "https://github.com/qufu-io/qufu-codex-dashboard/releases/download/";
 
 #[derive(Default)]
 pub struct UpdateState {
@@ -100,7 +99,7 @@ mod tests {
         assert!(trusted_download(&format!(
             "{DOWNLOAD_PREFIX}v1.1.0/app.exe"
         )));
-        for url in ["http://github.com/qufu-io/qufu-codex-dashboard-releases/releases/download/v1/app.exe", "https://github.com.evil.test/qufu-io/qufu-codex-dashboard-releases/releases/download/v1/app.exe", "https://github.com/another/project/releases/download/v1/app.exe", DOWNLOAD_PREFIX] {
+        for url in ["http://github.com/qufu-io/qufu-codex-dashboard/releases/download/v1/app.exe", "https://github.com.evil.test/qufu-io/qufu-codex-dashboard/releases/download/v1/app.exe", "https://github.com/another/project/releases/download/v1/app.exe", DOWNLOAD_PREFIX] {
             assert!(!trusted_download(url));
         }
     }

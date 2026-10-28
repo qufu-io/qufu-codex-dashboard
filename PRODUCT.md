@@ -41,3 +41,6 @@ Same-version 1.0.2 refresh: one automatic content-fitted layout (300px main, 371
 
 
 1.0.3 supersedes the shared weekly model: each quota window independently fits its own N/C/O weights and validates against its own resets; no hourly/weekly ratio or coefficient sharing. The main window always shows a compact Version/update row above the centered qufu.io and alper@qufu.io author footer, including when Settings is closed.
+
+
+1.0.4: quota histories and independent N/C/O models are scoped to the explicit backend account identity (local SHA-256 pseudonym). Session/turn totals retain conversation scope. Account switches, unidentified reads and >90s observation gaps interrupt learning and graph continuity. Unidentified legacy history is preserved but not reassigned. Weekly-only accounts remain supported by duration matching. Public source, release assets and updater endpoints are consolidated into qufu-io/qufu-codex-dashboard.
