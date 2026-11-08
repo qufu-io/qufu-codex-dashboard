@@ -75,3 +75,12 @@ Source/tag: `891d90e3b9ff289c739fe1531bf3ee4a2805fc8f` / `v1.0.4`. [Source CI 40
 ## Authorized 1.0.5 — 2026-11-08
 
 The owner explicitly authorized release 1.0.5 and delivery through in-app updates following PR #1 review/merge. Use the consolidated source repository for the immutable tag, signed Windows NSIS/portable and Linux DEB/AppImage packages, checksums and latest.json. Keep the signing public key and data/settings intact. Require exact-source Windows/Ubuntu CI, signed builds, signature/signed-version/tamper verification and anonymous asset/manifest verification. The version increase enables normal signed updates from 1.0.4; older legacy-endpoint versions still require manual installation. The release workflow only builds artifacts; publish the verified asset set explicitly.
+
+
+## Published 1.0.5 — 2026-11-08
+
+Immutable source/tag `3d73e794379613ef97528e09c6c0b816f585cc68` / `v1.0.5`; source CI `42507485390` and signed builds `42507505041` passed on Windows/Ubuntu. All three signatures, signed versions, tamper rejection and nine anonymous asset downloads/checksums passed. Latest manifest served 1.0.5 with five aliases; installed native window displayed 1.0.5. Actual installer replacement steps were not observed or controlled.
+
+## Authorized 1.0.6 — 2026-11-08
+
+The owner explicitly authorized merging PR #3 after CI passes, then publishing 1.0.6 with signed in-app updates. Preserve database/history and settings; retain the public signing key and consolidated update endpoint. Apply existing Windows/Ubuntu source CI, signed package builds, signature/version/tamper and anonymous download/manifest gates. No historical task backfill is claimed. Use an immutable v1.0.6 tag and new assets; never replace the 1.0.5 tag or packages.
