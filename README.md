@@ -4,17 +4,17 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 
 [![Source checks](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/qufu-io/qufu-codex-dashboard)](https://github.com/qufu-io/qufu-codex-dashboard/releases/latest)
 
-**Open source · MIT · Version 1.0.4 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
+**Open source · MIT · Version 1.0.5 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
 
-[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.4](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.4) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
+[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.5](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.5) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 
 <p align="center">
-  <img src="docs/images/dashboard-1.0.4.png" width="300" alt="Qufu Codex Dashboard 1.0.4 with illustrative workspace and task measurements">
+  <img src="docs/images/dashboard-1.0.4.png" width="300" alt="Qufu Codex Dashboard with illustrative workspace and task measurements">
 </p>
 
 *Illustrative data; no personal session information. / Örnek veriler; kişisel session bilgisi içermez.*
 
-[What’s new / Yenilikler](docs/CHANGES-1.0.4.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
+[What’s new / Yenilikler](docs/CHANGES-1.0.5.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
 
 | Measurement / Ölçüm | Source and meaning / Kaynak ve anlam |
 | --- | --- |
@@ -43,14 +43,14 @@ Qufu Codex Dashboard, Codex kullanımını küçük bir masaüstü penceresinden
 
 Uygulama **ücretsiz ve MIT lisanslı açık kaynaklıdır**. [Kaynak kodunu](https://github.com/qufu-io/qufu-codex-dashboard) inceleyebilir, değiştirebilir ve lisans koşullarıyla paylaşabilirsin. İndirme için GitHub hesabı gerekmez.
 
-1. [1.0.4 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.4).
+1. [1.0.5 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.5).
 2. **Assets** bölümünü genişlet.
 3. İşletim sistemine uygun paketi indir:
 
 | Platform | Paket | Kurulum |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Dosyayı çalıştır; kurulumdan sonra Başlat menüsünden aç. |
-| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.4.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
+| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.5.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./indirilen-dosya.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x indirilen-dosya.AppImage` ardından dosyayı çalıştır. |
 
@@ -113,12 +113,12 @@ Qufu Codex Dashboard is a compact Tauri 2 desktop monitor for local Codex usage 
 
 The application is **free and open source under MIT**. [Browse, modify and contribute to the source](https://github.com/qufu-io/qufu-codex-dashboard). Downloads are public and require no GitHub account.
 
-Open [Release 1.0.4 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.4) and select your package:
+Open [Release 1.0.5 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.5) and select your package:
 
 | Platform | Package | Installation |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Run the installer, then open the app from the Start menu. |
-| Windows x64 portable | `QufuCodexDashboard-1.0.4.exe` | Run the executable; WebView2 must be installed. |
+| Windows x64 portable | `QufuCodexDashboard-1.0.5.exe` | Run the executable; WebView2 must be installed. |
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./downloaded-file.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x downloaded-file.AppImage`, then run it. |
 
@@ -151,7 +151,7 @@ Quota learning is isolated by the explicit account ID in the official rate-limit
 
 Click **Check for updates** in the main window. When a newer release is found, click **Download and install** to approve installation. The package signature and signed version are verified first. Windows may close during installation; Linux restarts the app afterward. The GitHub button opens the releases page. A failed network or missing release manifest is reported as a failed check, never as proof that the app is current.
 
-Source code and installers now share this repository. Version 1.0.4 uses this repository for update checks. Older installations still point at the previous downloads repository and should install 1.0.4 manually before that repository is removed.
+Source code and installers now share this repository. Versions 1.0.4 and later use this repository for signed in-app updates. Versions 1.0.3 and earlier still point at the previous downloads repository and require a manual install of the current release.
 
 The source and original project assets are available under the [MIT license](LICENSE). Third-party components retain their own licenses. See the [license transition](docs/LICENSING.md) for the legacy freeware wording still embedded in previously published 1.0 installers.
 
