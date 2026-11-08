@@ -55,6 +55,15 @@ test('manual selection, metrics, details and settings',async({page})=>{
  await page.locator('#theme').selectOption('light');
  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
 });
+test('quota card prefers projected raw capacity and preserves the official percentage',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const result=await base(cmd,args);if(cmd==='snapshot')result.quota.value.primary.token_estimate={used:42000000,capacity:100000000,rawUsed:126000000,rawCapacity:300000000,approximate:true,intervals:20,resets:4,reliability:'limited',localTokens:120000000};return result;};});
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(page.locator('#five .quota-amount')).toContainText('126M / 300M');
+ await expect(page.locator('#five .quota-amount')).toContainText('Raw tokens (estimated)');
+ await expect(page.getByRole('progressbar',{name:'5-hour account limit'})).toHaveAttribute('aria-valuenow','42');
+ await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/Reference capacity/);
+});
+
 test('read errors never invent zero usage',async({page})=>{
  await page.evaluate(()=>{(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string)=>{if(cmd==='snapshot')throw new Error('test read failure');return null;};});
  await page.getByRole('button',{name:'Refresh',exact:true}).click();
