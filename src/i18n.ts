@@ -1,11 +1,14 @@
 export type Language = 'tr' | 'en';
 const en: Record<string, string> = {
+  'Fit zamanında kaydedilen durum; yeniden doğrulanmadı.':'Status recorded at fit time; not revalidated.',
+  'Codex session kaydından; abonelikten tahmin edilmez.':'From the Codex session record; not inferred from the subscription.',
+  'N/C/O dağılımı':'N/C/O mix','Kaydedilmemiş dağılım':'Mix not recorded','current-observed-window-mix':'Observed window mix','equal-weight-legacy':'Legacy equal-weight estimate',
   'Kota hesabı':'Quota account','Doğrulanamadı':'Unverified','Hesap kimliği doğrulanamazsa hesaplar arası kalibrasyon yapılmaz.':'Without a verified account identity, quota calibration is unavailable.','Hesap gözlem aralıklarıyla sınırlı; eşzamanlı hesap kullanımını ayıramaz.':'Limited to observed account intervals; concurrent account usage cannot be separated.',
   'validated':'Validated','limited':'Limited accuracy','learning':'Learning','unstable':'Unstable','insufficient':'Insufficient evidence',
   'estimated_capacity_change':'Estimated capacity change','within_model_error':'Within model error','weights_relearned':'Weights recalibrated','ratio_recalibration':'Weekly ratio recalibrated','usage_mix_changed':'Usage mix changed',
   'Görevle eşleşen subagent tüketimi':'Subagent usage linked to this task','Ana görev toplamına eklenmez; eksik ilişkiler dışarıda kalır.':'Separate from the main task; missing links are excluded.',
   'Görev tüketimi':'Task usage','Context geçmişi':'Context history','5 saatlik kapasite geçmişi':'5-hour capacity history','Haftalık kapasite geçmişi':'Weekly capacity history',
-  'Görev':'Task','Cache dışı input':'Uncached input','Referans kapasite':'Reference capacity','Varsayım':'Assumed','Resmi kullanım':'Official usage','Grafik ölçümü':'Chart metric',
+  'Görev':'Task','Cache dışı input':'Uncached input','Referans kapasite':'Reference capacity','Ham token kapasite tahmini':'Projected raw token capacity','Ham token tahmini':'Raw tokens (estimated)','Ham kapasite mevcut gözlenen N/C/O dağılımına göre değişir; resmi sabit kota değildir.':'Raw capacity changes with the currently observed N/C/O mix; it is not a fixed official allowance.','Varsayım':'Assumed','Resmi kullanım':'Official usage','Grafik ölçümü':'Chart metric',
   'Görev sonunda ölçülen context':'Context measured at task end','Cache dışı input eşdeğeri':'Uncached input equivalent','N eşdeğeri':'N equivalent',
   'Tahmini kapasite değişimi; backend kota değişimi olarak doğrulanamaz.':'Estimated capacity changes; backend quota changes cannot be isolated.',
   'Yalnızca tamamlanan görevler; eksik ölçümler doldurulmaz.':'Completed tasks only; missing measurements stay missing.',
@@ -67,5 +70,5 @@ const en: Record<string, string> = {
   'Token sayacı sıfırlandı; son yanıt üzerinden devam edildi':'The usage counter reset; tracking continued from the last response.',
   'Bozuk JSONL kaydı atlandı':'An unreadable usage record was skipped.'
 };
-const statusTr:Record<string,string>={in_progress:'Çalışıyor',completed:'Tamamlandı',interrupted:'Kesildi',incomplete:'Yarım kaldı',failed:'Başarısız',validated:'Doğrulandı',limited:'Sınırlı doğruluk',learning:'Öğreniliyor',unstable:'Tutarsız',insufficient:'Yetersiz kanıt',estimated_capacity_change:'Tahmini kapasite değişimi',within_model_error:'Model hata sınırı içinde',weights_relearned:'Ağırlıklar yeniden öğrenildi',ratio_recalibration:'Eski haftalık oran kalibrasyonu',calibration_changed:'Kalibrasyon yöntemi değişti',usage_mix_changed:'Kullanım dağılımı değişti'};
+const statusTr:Record<string,string>={'current-observed-window-mix':'Gözlenen pencere dağılımı','equal-weight-legacy':'Eski eşit ağırlık tahmini',in_progress:'Çalışıyor',completed:'Tamamlandı',interrupted:'Kesildi',incomplete:'Yarım kaldı',failed:'Başarısız',validated:'Doğrulandı',limited:'Sınırlı doğruluk',learning:'Öğreniliyor',unstable:'Tutarsız',insufficient:'Yetersiz kanıt',estimated_capacity_change:'Tahmini kapasite değişimi',within_model_error:'Model hata sınırı içinde',weights_relearned:'Ağırlıklar yeniden öğrenildi',ratio_recalibration:'Eski haftalık oran kalibrasyonu',calibration_changed:'Kalibrasyon yöntemi değişti',usage_mix_changed:'Kullanım dağılımı değişti'};
 export function translate(value:string, language:Language):string { return language==='en' ? en[value]??value : statusTr[value]??value; }
