@@ -71,7 +71,10 @@ fn projected_raw_capacity(weights: &[f64; 3], mix: &[f64; 3]) -> Option<f64> {
         return None;
     }
     let capacity = 100. * 100_000. * total / weighted;
-    capacity.is_finite().then_some(capacity).filter(|c| (1. ..=1e13).contains(c))
+    capacity
+        .is_finite()
+        .then_some(capacity)
+        .filter(|c| (1. ..=1e13).contains(c))
 }
 fn median(values: &mut [f64]) -> f64 {
     values.sort_by(f64::total_cmp);
@@ -263,7 +266,7 @@ fn fit(rows: &[&Interval]) -> Model {
     };
     m
 }
-fn validation(rows: &[Interval]) -> (Option<f64>, Option<f64>, usize) {
+fn validation(rows: &[Interval], regression: bool) -> (Option<f64>, Option<f64>, usize) {
     let resets: BTreeSet<_> = rows.iter().map(|r| r.reset).collect();
     let mut errors = Vec::new();
     for reset in resets.into_iter().skip(2) {
@@ -281,6 +284,9 @@ fn validation(rows: &[Interval]) -> (Option<f64>, Option<f64>, usize) {
             continue;
         }
         let model = fit(&train);
+        if model.regression != regression {
+            continue;
+        }
         for r in rows.iter().filter(|r| r.reset == reset) {
             errors.push((model.predict(&r.groups) - r.percent).abs() / r.percent * 100.);
         }
@@ -362,9 +368,16 @@ fn estimate(
     let observed: Vec<_> = past.iter().filter(|p| p.minutes == minutes).collect();
     let belongs = |t: i64| {
         scope.is_empty()
-            || observed
-                .windows(2)
-                .any(|p| p[0].epoch == p[1].epoch && t > p[0].at && t <= p[1].at)
+            || observed.windows(2).any(|p| {
+                p[0].epoch == p[1].epoch
+                    && p[0].reset == reset
+                    && p[1].reset == reset
+                    && plan.is_none_or(|plan| {
+                        p[0].plan.as_deref() == Some(plan) && p[1].plan.as_deref() == Some(plan)
+                    })
+                    && t > p[0].at
+                    && t <= p[1].at
+            })
     };
     let mut local = None;
     let mut current_mix = [0.; 3];
@@ -382,7 +395,7 @@ fn estimate(
         return value;
     }
     let model = fit(&rows.iter().collect::<Vec<_>>());
-    let (typical, p90, count) = validation(&rows);
+    let (typical, p90, count) = validation(&rows, model.regression);
     value["medianErrorPercent"] = json!(typical);
     value["p90ErrorPercent"] = json!(p90);
     value["validationCount"] = json!(count);
@@ -474,16 +487,34 @@ fn account_estimate(samples: &[Sample], points: &[Point], quota: &Value, key: &s
         quota["at"].as_i64().unwrap_or(0),
     )
 }
-fn capacity_change(previous: &Value, current: &Value) -> Value {
-    // Compare like with like. Equal-weight legacy fits have a raw reference;
-    // a missing historical mix for later fits does not justify a change alert.
-    let raw = |v: &Value| {
-        v["rawCapacity"].as_f64().or_else(|| {
-            (v["method"] == "initial-ratio").then(|| v["capacity"].as_f64()).flatten()
-        })
+fn legacy_raw_projection(value: &mut Value) {
+    if !value["rawCapacity"].is_null() || value["method"] != "initial-ratio" {
+        return;
+    }
+    let Some(weights) = value["weights"].as_array().filter(|w| w.len() == 3) else {
+        return;
     };
-    let Some((a, b)) = raw(previous)
-        .zip(raw(current))
+    let Some(a) = weights[0].as_f64().filter(|a| a.is_finite() && *a > 0.) else {
+        return;
+    };
+    if !weights.iter().all(|w| {
+        w.as_f64()
+            .is_some_and(|w| w.is_finite() && (w / a - 1.).abs() < 1e-9)
+    }) {
+        return;
+    }
+    if let Some(capacity) = value["capacity"]
+        .as_f64()
+        .filter(|c| c.is_finite() && *c > 0. && (c * a / 100. - 1.).abs() < 1e-6)
+    {
+        value["rawCapacity"] = json!(capacity);
+        value["rawCapacityBasis"] = json!("equal-weight-legacy");
+    }
+}
+fn capacity_change(previous: &Value, current: &Value) -> Value {
+    let Some((a, b)) = previous["capacity"]
+        .as_f64()
+        .zip(current["capacity"].as_f64())
         .filter(|(a, b)| *a > 0. && *b > 0.)
     else {
         return json!({"status":"insufficient","backendChangeVerified":false});
@@ -506,6 +537,12 @@ fn capacity_change(previous: &Value, current: &Value) -> Value {
             .is_none_or(|(a, b)| (b - a).abs() > 0.15 * a.abs().max(0.01))
     });
     let mix_changed = previous["modelMix"] != current["modelMix"];
+    let raw_mix_changed = previous["rawMix"] != current["rawMix"];
+    let raw_delta = previous["rawCapacity"]
+        .as_f64()
+        .zip(current["rawCapacity"].as_f64())
+        .filter(|(a, b)| a.is_finite() && b.is_finite() && *a > 0. && *b > 0.)
+        .map(|(a, b)| (b / a - 1.) * 100.);
     let status = if !previous["identifiable"].as_bool().unwrap_or(false)
         || !current["identifiable"].as_bool().unwrap_or(false)
         || error.is_none()
@@ -522,7 +559,7 @@ fn capacity_change(previous: &Value, current: &Value) -> Value {
     } else {
         "within_model_error"
     };
-    json!({"status":status,"relativeChangePercent":delta,"empiricalErrorThresholdPercent":error,"backendChangeVerified":false})
+    json!({"status":status,"relativeChangePercent":delta,"reference":"uncached-input-equivalent","rawRelativeChangePercent":raw_delta,"rawMixChanged":raw_mix_changed,"rawChangeStatus":if raw_delta.is_none(){"insufficient"}else if raw_mix_changed{"usage_mix_changed"}else{"model_projection_changed"},"empiricalErrorThresholdPercent":error,"backendChangeVerified":false})
 }
 fn fingerprint(path: &Path, length: u64) -> Option<String> {
     let mut bytes = Vec::new();
@@ -1137,15 +1174,7 @@ impl Estimator {
         for row in rows {
             let (at, plan, limit, data) = row.map_err(|e| e.to_string())?;
             if let Ok(mut v) = serde_json::from_str::<Value>(&data) {
-                // Earlier provisional equal-weight fits already represented
-                // raw-token capacity. Later independent fits without a saved
-                // N/C/O mix cannot be retroactively projected safely.
-                if v["rawCapacity"].is_null() && v["method"] == "initial-ratio" {
-                    if let Some(capacity) = v["capacity"].as_f64() {
-                        v["rawCapacity"] = json!(capacity);
-                        v["rawCapacityBasis"] = json!("equal-weight-legacy");
-                    }
-                }
+                legacy_raw_projection(&mut v);
                 v["at"] = json!(at);
                 v["plan"] = json!(plan);
                 v["limitId"] = json!(limit);
@@ -1230,7 +1259,10 @@ mod tests {
         let weights = [0.2, 0.02, 1.0];
         let reference = 100. * 100_000. / weights[0];
         assert_eq!(reference, 50_000_000.);
-        assert_eq!(projected_raw_capacity(&weights, &[100., 0., 0.]), Some(reference));
+        assert_eq!(
+            projected_raw_capacity(&weights, &[100., 0., 0.]),
+            Some(reference)
+        );
         let mixed = projected_raw_capacity(&weights, &[2., 97., 1.]).unwrap();
         let expected = 100. * 100_000. * 100. / (0.2 * 2. + 0.02 * 97. + 1.0);
         assert!((mixed - expected).abs() < 1e-7);
@@ -1957,6 +1989,82 @@ mod tests {
         next = original.clone();
         next["p90ErrorPercent"] = Value::Null;
         assert_eq!(capacity_change(&original, &next)["status"], "insufficient");
+    }
+    #[test]
+    fn legacy_raw_overlay_requires_verified_equal_weights() {
+        let original = json!({"method":"initial-ratio","weights":[0.000001,0.000001,0.000001],"capacity":100000000.,"reliability":"learning"});
+        let mut valid = original.clone();
+        legacy_raw_projection(&mut valid);
+        assert_eq!(valid["rawCapacity"], 100000000.);
+        assert_eq!(valid["rawCapacityBasis"], "equal-weight-legacy");
+        assert_eq!(valid["reliability"], "learning");
+        for field in ["method", "weights", "capacity"] {
+            let mut invalid = original.clone();
+            invalid[field] = Value::Null;
+            legacy_raw_projection(&mut invalid);
+            assert!(invalid["rawCapacity"].is_null());
+        }
+        let mut unequal = original;
+        unequal["weights"][1] = json!(0.0000001);
+        legacy_raw_projection(&mut unequal);
+        assert!(unequal["rawCapacity"].is_null());
+    }
+    #[test]
+    fn raw_mix_changes_do_not_become_reference_quota_changes() {
+        let original = json!({"capacity":60000000.,"rawCapacity":367000000.,"rawMix":[0.04,0.95,0.01],"identifiable":true,"weights":[0.0000016667,0.0000001,0.000005],"calibrationMode":"independent-v1","p90ErrorPercent":5.,"modelMix":{"gpt|standard":1.}});
+        let mut next = original.clone();
+        next["rawCapacity"] = json!(284000000.);
+        next["rawMix"] = json!([0.08, 0.90, 0.02]);
+        let change = capacity_change(&original, &next);
+        assert_eq!(change["status"], "within_model_error");
+        assert_eq!(change["relativeChangePercent"], 0.);
+        assert_eq!(change["rawChangeStatus"], "usage_mix_changed");
+        assert_eq!(change["backendChangeVerified"], false);
+    }
+    #[test]
+    fn validation_cannot_validate_new_regression_with_equal_weight_folds() {
+        let (samples, points, _, _) = fixture(300, 1.);
+        let rows = intervals(&samples, &points, 300, Some("pro"));
+        let first_three: Vec<_> = rows
+            .iter()
+            .take_while(|r| {
+                r.reset
+                    <= points
+                        .iter()
+                        .map(|p| p.reset)
+                        .collect::<BTreeSet<_>>()
+                        .into_iter()
+                        .nth(2)
+                        .unwrap()
+            })
+            .cloned()
+            .collect();
+        assert!(fit(&first_three.iter().collect::<Vec<_>>()).regression);
+        assert_eq!(validation(&first_three, true), (None, None, 0));
+        assert!(validation(&rows, true).2 >= 8);
+    }
+    #[test]
+    fn observed_mix_excludes_prior_plan_within_the_same_epoch() {
+        let (samples, mut points, window, at) = fixture(300, 1.);
+        for p in &mut points {
+            p.scope = "account-a".into();
+            p.epoch = 1;
+        }
+        let mut scoped = window.clone();
+        scoped["_account_scope"] = json!("account-a");
+        let baseline = estimate(&samples, &points, &scoped, Some("pro"), at);
+        let reset = window["resets_at"].as_i64().unwrap();
+        let current_first = points.iter().position(|p| p.reset == reset).unwrap();
+        points[current_first].plan = Some("plus".into());
+        points[current_first + 1].plan = Some("plus".into());
+        let after = estimate(&samples, &points, &scoped, Some("pro"), at);
+        assert!(after["localTokens"].as_f64().unwrap() < baseline["localTokens"].as_f64().unwrap());
+        let expected: f64 = samples
+            .iter()
+            .filter(|s| s.at > points[current_first + 2].at && s.at <= at)
+            .map(Sample::tokens)
+            .sum();
+        assert_eq!(after["localTokens"], expected);
     }
     #[test]
     fn supersession_matches_one_response_once_across_restart() {

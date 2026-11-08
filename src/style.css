@@ -96,3 +96,5 @@ body footer>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:el
 :root[data-theme="light"] .history-mark.compacted{fill:#a34422}
 
 #releaseFooter{padding:0 0 8px}#releaseFooter .author{margin-top:8px}#releaseFooter .updates{margin-top:8px}
+
+.context-source{display:block;max-width:210px;font-size:9px;color:var(--muted)}
