@@ -62,6 +62,17 @@ impl Model {
 fn dot(a: &[f64; 3], b: &[f64; 3]) -> f64 {
     (0..3).map(|j| a[j] * b[j]).sum()
 }
+// Project the raw-token allowance for an observed N/C/O mix. This is not an
+// official, fixed token limit; changing the mix changes the projection.
+fn projected_raw_capacity(weights: &[f64; 3], mix: &[f64; 3]) -> Option<f64> {
+    let total = mix.iter().sum::<f64>();
+    let weighted = dot(weights, mix);
+    if !total.is_finite() || total <= 0. || !weighted.is_finite() || weighted <= 0. {
+        return None;
+    }
+    let capacity = 100. * 100_000. * total / weighted;
+    capacity.is_finite().then_some(capacity).filter(|c| (1. ..=1e13).contains(c))
+}
 fn median(values: &mut [f64]) -> f64 {
     values.sort_by(f64::total_cmp);
     let n = values.len();
@@ -356,11 +367,15 @@ fn estimate(
                 .any(|p| p[0].epoch == p[1].epoch && t > p[0].at && t <= p[1].at)
     };
     let mut local = None;
+    let mut current_mix = [0.; 3];
     for s in samples
         .iter()
         .filter(|s| s.at > reset - minutes * 60 && s.at <= at && belongs(s.at))
     {
         *local.get_or_insert(0.) += s.tokens();
+        for (j, n) in s.x.iter().enumerate() {
+            current_mix[j] += n;
+        }
     }
     let mut value = json!({"used":null,"capacity":null,"localTokens":local,"percent":percent,"reset":reset,"approximate":true,"intervals":rows.len(),"resets":rows.iter().map(|r|r.reset).collect::<BTreeSet<_>>().len(),"medianErrorPercent":null,"p90ErrorPercent":null,"validationCount":0,"reliability":"insufficient","method":"initial-ratio","priceIndependent":true,"reference":"uncached-input-equivalent","weights":null,"calibrationMode":"independent-v1","windowMinutes":minutes,"accountScoped":!scope.is_empty(),"localUsageScope":if scope.is_empty(){"legacy-unattributed"}else{"observed-account-intervals"}});
     if rows.is_empty() {
@@ -422,6 +437,16 @@ fn estimate(
     }
     value["capacity"] = json!(capacity);
     value["used"] = json!(capacity * percent / 100.);
+    // The reference capacity uses uncached input only. Project a separate raw
+    // allowance from the *observed account/window* token mix for the UI.
+    // Never treat this as a permanent allowance or mix with reference history.
+    if let Some(raw) = projected_raw_capacity(&model.common, &current_mix) {
+        value["rawCapacity"] = json!(raw);
+        value["rawUsed"] = json!(raw * percent / 100.);
+        let total = current_mix.iter().sum::<f64>();
+        value["rawMix"] = json!(current_mix.map(|v| v / total));
+        value["rawCapacityBasis"] = json!("current-observed-window-mix");
+    }
     value["reliability"] = json!(if model.regression && count >= 8 {
         "validated"
     } else {
@@ -450,9 +475,15 @@ fn account_estimate(samples: &[Sample], points: &[Point], quota: &Value, key: &s
     )
 }
 fn capacity_change(previous: &Value, current: &Value) -> Value {
-    let Some((a, b)) = previous["capacity"]
-        .as_f64()
-        .zip(current["capacity"].as_f64())
+    // Compare like with like. Equal-weight legacy fits have a raw reference;
+    // a missing historical mix for later fits does not justify a change alert.
+    let raw = |v: &Value| {
+        v["rawCapacity"].as_f64().or_else(|| {
+            (v["method"] == "initial-ratio").then(|| v["capacity"].as_f64()).flatten()
+        })
+    };
+    let Some((a, b)) = raw(previous)
+        .zip(raw(current))
         .filter(|(a, b)| *a > 0. && *b > 0.)
     else {
         return json!({"status":"insufficient","backendChangeVerified":false});
@@ -1106,6 +1137,15 @@ impl Estimator {
         for row in rows {
             let (at, plan, limit, data) = row.map_err(|e| e.to_string())?;
             if let Ok(mut v) = serde_json::from_str::<Value>(&data) {
+                // Earlier provisional equal-weight fits already represented
+                // raw-token capacity. Later independent fits without a saved
+                // N/C/O mix cannot be retroactively projected safely.
+                if v["rawCapacity"].is_null() && v["method"] == "initial-ratio" {
+                    if let Some(capacity) = v["capacity"].as_f64() {
+                        v["rawCapacity"] = json!(capacity);
+                        v["rawCapacityBasis"] = json!("equal-weight-legacy");
+                    }
+                }
                 v["at"] = json!(at);
                 v["plan"] = json!(plan);
                 v["limitId"] = json!(limit);
@@ -1185,6 +1225,20 @@ impl Estimator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn raw_capacity_respects_mix_without_changing_reference_capacity() {
+        let weights = [0.2, 0.02, 1.0];
+        let reference = 100. * 100_000. / weights[0];
+        assert_eq!(reference, 50_000_000.);
+        assert_eq!(projected_raw_capacity(&weights, &[100., 0., 0.]), Some(reference));
+        let mixed = projected_raw_capacity(&weights, &[2., 97., 1.]).unwrap();
+        let expected = 100. * 100_000. * 100. / (0.2 * 2. + 0.02 * 97. + 1.0);
+        assert!((mixed - expected).abs() < 1e-7);
+        assert!(mixed > reference);
+        assert_eq!(projected_raw_capacity(&weights, &[0.; 3]), None);
+        assert_eq!(projected_raw_capacity(&[0.; 3], &[1., 1., 1.]), None);
+    }
+
     fn fixture(minutes: i64, multiplier: f64) -> (Vec<Sample>, Vec<Point>, Value, i64) {
         let mut samples = Vec::new();
         let mut points = Vec::new();
