@@ -1,6 +1,6 @@
-# Measurements and history (development build)
+# Measurements and history
 
-These changes are not part of the published 1.0.1 installer. Application version metadata and releases are unchanged.
+Official session measurements, API-equivalent costs and learned account-quota projections have distinct scopes and units.
 
 ## Official measurements
 
@@ -86,3 +86,14 @@ Standalone startup follow-up: after correcting a plain-Cargo packaging mistake, 
 ## Release verification — 1.0.2
 
 The subsequent [source CI](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40575838994) passed 61 Rust and 29 Playwright tests on each of Windows and Ubuntu 22.04. [Signed package CI](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40575838624) successfully compiled and packaged Windows NSIS and Linux DEB/AppImage. This establishes Linux compilation in CI, separately from the local WSL tooling limitation above. Package signatures, signed version and tamper rejection passed; all nine published files were downloaded anonymously with matching SHA-256 digests. Native Linux desktop interaction and clean-host installation remain unverified.
+
+
+## Task consumption notices (development)
+
+The main task can show a local informational notice, never an official quota alarm or subscription charge. Raw Total includes cached input; CLI Used subtracts cached input but is not a quota-equivalent measure. Cached input can still consume quota. Output already includes reasoning.
+
+For the selected session, compare the current task to up to 20 preceding completed tasks with full usage and known cache. Exclude the current task, incomplete/interrupted tasks and known future completions. At least five baseline tasks are required. A >=3x increase triggers a notice only with >=100K CLI Used or >=1M Raw Total; >=5M Raw Total separately flags high task volume even without a baseline. Partial usage can only trigger the absolute volume notice and is labeled a lower bound. Main-task and subagent accounting remain separate. No conversation text, external telemetry, settings migration or official percentage changes are involved.
+
+Compact quantities always use English K/M/B suffixes (B = 1,000,000,000), including Turkish UI; exact values and uncertainty remain in tooltips. Quota fractions and Learning status have separate space so units remain visible at 300px.
+
+Task-reader regressions cover legacy/new response overlap without cumulative turn snapshots and counter resets. Old persisted derived task history is not silently rewritten: previously saved graph measurements may retain prior parser results, while the main reader rebuilds the current task/baseline from rollouts after restart. Quota token evidence and fitted quota coefficients were not affected by these task-only bugs. A separate read-only historical recomputation is not implemented or claimed.

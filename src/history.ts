@@ -1,5 +1,6 @@
 import {invoke} from '@tauri-apps/api/core';
 import {translate, type Language} from './i18n';
+import {compactTokens} from './usage';
 
 type Config={metric:'turns'|'context'|'five'|'week';selected:string|null;language:Language;theme:'dark'|'light'};
 type RecordValue=Record<string,any>;
@@ -10,7 +11,7 @@ export async function mountHistory(){
  const app=document.querySelector<HTMLDivElement>('#app')!;
  const t=(s:string)=>translate(s,config.language);
  const fmt=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?Intl.NumberFormat(config.language==='tr'?'tr-TR':'en-US',{maximumFractionDigits:2}).format(v):'—';
- const compact=(n:number)=>Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(n);
+ const compact=compactTokens;
  const stamp=(n:unknown)=>typeof n==='number'?new Date(n*1000).toLocaleString(config.language==='tr'?'tr-TR':'en-GB'):'—';
  const names={turns:'Görev tüketimi',context:'Context geçmişi',five:'5 saatlik kapasite geçmişi',week:'Haftalık kapasite geçmişi'};
  function detail(p:RecordValue){
@@ -21,9 +22,9 @@ export async function mountHistory(){
  function render(){
   document.documentElement.lang=config.language;document.documentElement.dataset.theme=config.theme;document.body.className='history-body';
   const turns=config.metric==='turns',context=config.metric==='context',quota=!turns&&!context;
-  const options=turns?[['used','CLI Used'],['raw','Raw Total'],['usd',t('Tahmini USD')]]:quota?[['raw',t('Ham token kapasite tahmini')],['capacity',t('Referans kapasite')],['percent',t('Resmi kullanım')]]:[];
+  const options=turns?[['used',t('CLI Used · cache hariç')],['raw',t('Raw Total · cache dahil')],['usd',t('Tahmini USD')]]:quota?[['raw',t('Ham token kapasite tahmini')],['capacity',t('Referans kapasite')],['percent',t('Resmi kullanım')]]:[];
   if(!options.some(o=>o[0]===view)&&options.length)view=options[0][0];
-  app.innerHTML=`<section class="history-window"><div class="history-heading" data-tauri-drag-region><strong data-tauri-drag-region>${t(names[config.metric])}</strong><button class="icon" id="historyClose" aria-label="${t('Kapat')}"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div><div class="history-controls">${options.length?`<select id="historyView" aria-label="${t('Grafik ölçümü')}">${options.map(([v,n])=>`<option value="${v}" ${view===v?'selected':''}>${n}</option>`).join('')}</select>`:`<span>${t('Görev sonunda ölçülen context')}</span>`}<span class="history-unit">${quota&&view==='capacity'?t('Cache dışı input eşdeğeri'):context||view==='percent'?'%':view==='usd'?'$':'Token'}</span></div><div id="historyPlot" class="history-plot"></div><p class="history-notice">${quota?t(view==='raw'?'Ham kapasite mevcut gözlenen N/C/O dağılımına göre değişir; resmi sabit kota değildir.':'Tahmini kapasite değişimi; backend kota değişimi olarak doğrulanamaz.'):t('Yalnızca tamamlanan görevler; eksik ölçümler doldurulmaz.')}</p><output id="historyDetail" class="history-detail">${t('Ayrıntı için bir noktaya veya çubuğa gel.')}</output></section>`;
+  app.innerHTML=`<section class="history-window"><div class="history-heading" data-tauri-drag-region><strong data-tauri-drag-region>${t(names[config.metric])}</strong><button class="icon" id="historyClose" aria-label="${t('Kapat')}"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div><div class="history-controls">${options.length?`<select id="historyView" aria-label="${t('Grafik ölçümü')}">${options.map(([v,n])=>`<option value="${v}" ${view===v?'selected':''}>${n}</option>`).join('')}</select>`:`<span>${t('Görev sonunda ölçülen context')}</span>`}<span class="history-unit">${quota&&view==='capacity'?t('Cache dışı input eşdeğeri'):context||view==='percent'?'%':view==='usd'?'$':'Token'}</span></div><div id="historyPlot" class="history-plot"></div><p class="history-notice">${quota?t(view==='raw'?'Ham kapasite mevcut gözlenen N/C/O dağılımına göre değişir; resmi sabit kota değildir.':'Tahmini kapasite değişimi; backend kota değişimi olarak doğrulanamaz.'):t(turns?(view==='used'?'CLI Used = Input − Cache + Output.':view==='raw'?'Raw Total = Input + Output; Cache ve Reasoning tekrar eklenmez.':'Tahmini API maliyeti; abonelik faturası değildir.'):'Yalnızca tamamlanan görevler; eksik ölçümler doldurulmaz.')}${turns&&view==='used'?' '+t('CLI Used bir kota ölçüsü değildir; cache de kota tüketebilir.'):''}</p><output id="historyDetail" class="history-detail">${t('Ayrıntı için bir noktaya veya çubuğa gel.')}</output></section>`;
   document.getElementById('historyClose')!.onclick=()=>void invoke('close_history');
   const select=document.getElementById('historyView') as HTMLSelectElement|null;
   if(select)select.onchange=()=>{view=select.value;render();};

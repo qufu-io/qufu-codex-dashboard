@@ -523,3 +523,38 @@ for(const language of ['en','tr']) test(`raw quota history ${language} preserves
  await expect(page.locator('.history-notice')).toContainText(language==='en'?'not a fixed official allowance':'resmi sabit kota değildir');
  await page.screenshot({path:`artifacts/pr1-raw-history-${language}.png`});
 });
+
+for(const language of ['en','tr']) test(`weekly billion capacity ${language} remains fully visible at 300px`,async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'){v.quota.value.secondary.used_percent=5;v.quota.value.secondary.token_estimate={used:164e6,capacity:3280e6,rawUsed:164e6,rawCapacity:3280e6,reliability:'learning',approximate:true,localTokens:120e6,intervals:1,resets:1};}return v;};});
+ if(language==='tr'){await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#language').selectOption('tr');await page.locator('#theme').selectOption('light');await fitPanel(page);await page.locator('#settingsToggle').click();}
+ await page.locator('#refresh').click();await fitWindow(page);
+ await expect(page.locator('#week .quota-value')).toHaveText('≈ 164M / 3.28B Token');
+ await expect(page.locator('#week .quota-confidence')).toHaveText(language==='en'?'Learning':'Öğreniliyor');
+ await expect(page.locator('#week .quota-amount')).toHaveAttribute('title',language==='en'?/B = billion/:/B = milyar/);
+ await expect(page.getByRole('progressbar',{name:language==='en'?'Weekly account limit':'Haftalık hesap limiti'})).toHaveAttribute('aria-valuenow','5');
+ const bounds=await page.locator('#week').evaluate(e=>{const v=e.querySelector('.quota-value')!.getBoundingClientRect(),c=e.querySelector('.quota-confidence')!.getBoundingClientRect();return {right:v.right,confidence:c.left,width:innerWidth,scroll:document.documentElement.scrollWidth};});
+ expect(bounds.right).toBeLessThanOrEqual(bounds.confidence);expect(bounds.scroll).toBeLessThanOrEqual(bounds.width);
+ await page.screenshot({path:`artifacts/weekly-billion-${language}.png`});
+});
+
+for(const language of ['en','tr']) test(`task usage warning ${language} distinguishes a cache-heavy volume from a usage spike`,async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__taskFixture={raw:10000000,used:40000,count:0,partial:false};(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'&&v.detail){const f=(window as any).__taskFixture;v.detail.turn={id:'current',status:'in_progress',rawTotal:f.raw,used:f.used,usagePartial:f.partial};v.detail.turnBaseline={count:f.count,rawMedian:1000000,usedMedian:50000};v.detail.lastUsage=f.raw==null?null:{input:f.raw-10000,cache:f.raw-f.used,output:10000,reasoning:5000,total:f.raw,write:0};v.detail.usage=v.detail.lastUsage;v.detail.rawTotal=f.raw;v.detail.used=f.used;}return v;};});
+ await page.locator('#sessionTitle').click();await page.locator('[data-id="test-main"]').click();
+ if(language==='tr'){await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#language').selectOption('tr');await page.locator('#theme').selectOption('light');await fitPanel(page);await page.locator('#settingsToggle').click();}
+ await expect(page.locator('.task-warning')).toContainText(language==='en'?'High task volume':'Yüksek görev hacmi');await expect(page.locator('.task-warning')).toContainText('10M Raw Total');
+ await page.evaluate(()=>{(window as any).__taskFixture={raw:600000,used:200000,count:10,partial:false};});await page.locator('#refresh').click();
+ await expect(page.locator('.task-warning')).toContainText(language==='en'?'Task usage spike':'Görev tüketimi arttı');await expect(page.locator('.task-warning')).toContainText('200K CLI Used');await expect(page.locator('.task-warning')).toContainText('4.0×');
+ await fitWindow(page);expect(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight||document.documentElement.scrollWidth>innerWidth)).toBe(false);
+ const widths=await page.locator('.task-warning').evaluate(e=>({warning:e.getBoundingClientRect().width,parent:e.parentElement!.getBoundingClientRect().width}));expect(widths.warning).toBe(widths.parent);
+ await page.screenshot({path:`artifacts/task-warning-${language}.png`});
+ await page.evaluate(()=>{(window as any).__taskFixture={raw:null,used:null,count:10,partial:false};});await page.locator('#refresh').click();await expect(page.locator('.task-warning')).toHaveCount(0);
+});
+
+test('task chart explains CLI Used and Raw Total without changing measurements',async({page})=>{
+ await page.addInitScript(()=>{(window as any).__QUFU_HISTORY__={metric:'turns',selected:'test',language:'en',theme:'dark'};const usage={input:1000,cache:800,output:200,reasoning:50,total:1200};(window as any).__TAURI_INTERNALS__={invoke:async()=>[{id:'turn',status:'completed',startedAt:100,completedAt:120,usage,used:400,rawTotal:1200}]};});
+ await page.setViewportSize({width:480,height:300});await page.goto('http://127.0.0.1:5173/?history=1');
+ await expect(page.locator('#historyView')).toHaveValue('used');await expect(page.locator('.history-notice')).toContainText('Input − Cache + Output');await expect(page.locator('.history-notice')).toContainText('not a quota measure');
+ await page.locator('.history-mark').focus();await expect(page.locator('#historyDetail')).toContainText('Used 400 · Raw 1,200');
+ await page.locator('#historyView').selectOption('raw');await expect(page.locator('.history-notice')).toContainText('Cache and Reasoning are not added again');
+ await page.screenshot({path:'artifacts/history-raw-explanation.png'});
+});
