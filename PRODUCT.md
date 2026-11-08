@@ -44,3 +44,6 @@ Same-version 1.0.2 refresh: one automatic content-fitted layout (300px main, 371
 
 
 1.0.4: quota histories and independent N/C/O models are scoped to the explicit backend account identity (local SHA-256 pseudonym). Session/turn totals retain conversation scope. Account switches, unidentified reads and >90s observation gaps interrupt learning and graph continuity. Unidentified legacy history is preserved but not reassigned. Weekly-only accounts remain supported by duration matching. Public source, release assets and updater endpoints are consolidated into qufu-io/qufu-codex-dashboard.
+
+
+Development refinement: quota title/official percent/reset form one row, with the full K/M/B token fraction and learning status on a separate row. Task notices distinguish raw cached volume from CLI Used spikes against prior completed tasks; they are local heuristics, not official quota alerts. Main colors, fonts, theme and compact content fitting remain unchanged.

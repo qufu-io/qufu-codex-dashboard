@@ -110,6 +110,137 @@ mod tests {
         assert!(!serde_json::to_string(&b).unwrap().contains("not persisted"));
     }
     #[test]
+    fn legacy_and_response_overlap_without_turn_snapshot_is_counted_once() {
+        let legacy = json!({"type":"event_msg","timestamp":"2026-10-27T12:00:01Z","payload":{"type":"token_count","turn_id":"t","info":{"total_token_usage":u(100,60,10),"last_token_usage":u(100,60,10)}}});
+        let mut response = record("t", "r1", u(100, 60, 10), Value::Null);
+        response["timestamp"] = json!("2026-10-27T12:00:01Z");
+        for response_first in [false, true] {
+            let mut book = Book::default();
+            book.observe(&event("task_started", "t"), "a", None);
+            let records = if response_first {
+                [&response, &legacy]
+            } else {
+                [&legacy, &response]
+            };
+            for e in records {
+                book.observe(e, "a", None);
+            }
+            let turn = book.latest().unwrap();
+            assert_eq!(turn.usage.as_ref().unwrap().raw_total(), 110);
+            assert_eq!(turn.responses.len(), 1);
+            assert!(!turn.quote().partial);
+            let mut restored: Book =
+                serde_json::from_str(&serde_json::to_string(&book).unwrap()).unwrap();
+            restored.observe(&response, "a", None);
+            assert_eq!(
+                restored
+                    .latest()
+                    .unwrap()
+                    .usage
+                    .as_ref()
+                    .unwrap()
+                    .raw_total(),
+                110
+            );
+            let mut different = response.clone();
+            different["timestamp"] = json!("2026-10-27T12:00:02Z");
+            different["payload"]["response_id"] = json!("r2");
+            restored.observe(&different, "a", None);
+            assert_eq!(
+                restored
+                    .latest()
+                    .unwrap()
+                    .usage
+                    .as_ref()
+                    .unwrap()
+                    .raw_total(),
+                220
+            );
+            assert_eq!(restored.latest().unwrap().responses.len(), 2);
+        }
+    }
+    #[test]
+    fn legacy_reset_keeps_known_responses_and_marks_missing_coverage() {
+        let mut book = Book::default();
+        book.observe(&event("task_started", "t"), "a", None);
+        let mut usage_event = json!({"type":"event_msg","timestamp":"2026-10-27T12:00:01Z","payload":{"type":"token_count","turn_id":"t","info":{"total_token_usage":u(100,60,10),"last_token_usage":u(100,60,10)}}});
+        book.observe(&usage_event, "a", None);
+        let mut without_last = book.clone();
+        usage_event["timestamp"] = json!("2026-10-27T12:00:02Z");
+        usage_event["payload"]["info"]["total_token_usage"] = u(40, 20, 4);
+        usage_event["payload"]["info"]["last_token_usage"] = u(40, 20, 4);
+        book.observe(&usage_event, "a", None);
+        let turn = book.latest().unwrap();
+        assert_eq!(turn.usage.as_ref().unwrap().raw_total(), 154);
+        assert!(turn.usage_partial);
+        assert!(turn.quote().partial);
+        assert_eq!(turn.responses.len(), 2);
+        book.observe(&usage_event, "a", None);
+        assert_eq!(
+            book.latest().unwrap().usage.as_ref().unwrap().raw_total(),
+            154
+        );
+        usage_event["timestamp"] = json!("2026-10-27T12:00:03Z");
+        usage_event["payload"]["info"]["total_token_usage"] = u(80, 40, 8);
+        book.observe(&usage_event, "a", None);
+        assert_eq!(
+            book.latest().unwrap().usage.as_ref().unwrap().raw_total(),
+            198
+        );
+        assert_eq!(book.latest().unwrap().responses.len(), 3);
+        usage_event["payload"]["info"]["total_token_usage"] = u(40, 20, 4);
+        usage_event["payload"]["info"]["last_token_usage"] = Value::Null;
+        without_last.observe(&usage_event, "a", None);
+        let missing = without_last.latest().unwrap();
+        assert_eq!(missing.usage.as_ref().unwrap().raw_total(), 110);
+        assert!(missing.usage_partial);
+        assert!(missing.quote().partial);
+    }
+    #[test]
+    fn usage_baseline_excludes_current_partial_and_noncompleted_tasks() {
+        let mut book = Book::default();
+        assert_eq!(
+            book.usage_baseline(),
+            json!({"count":0,"rawMedian":null,"usedMedian":null})
+        );
+        for i in 1..=28 {
+            let id = format!("t{i}");
+            let mut usage = Usage::from(&u(i * 100, i * 50, i * 10)).unwrap();
+            if i == 27 {
+                usage.cache_missing = true;
+            }
+            book.order.push(id.clone());
+            book.turns.insert(
+                id.clone(),
+                Turn {
+                    id,
+                    sequence: i,
+                    usage: Some(usage),
+                    usage_partial: i == 26,
+                    status: if i == 25 {
+                        "interrupted"
+                    } else if i == 28 {
+                        "in_progress"
+                    } else {
+                        "completed"
+                    }
+                    .into(),
+                    ..Default::default()
+                },
+            );
+        }
+        book.active = Some("t28".into());
+        let baseline = book.usage_baseline();
+        assert_eq!(baseline["count"], 20);
+        assert_eq!(baseline["rawMedian"], 1595.);
+        assert_eq!(baseline["usedMedian"], 870.);
+        book.turns.get_mut("t28").unwrap().usage = Some(Usage::from(&u(1000000, 0, 0)).unwrap());
+        assert_eq!(book.usage_baseline(), baseline);
+        book.turns.get_mut("t24").unwrap().completed_at = Some(200);
+        book.turns.get_mut("t28").unwrap().started_at = Some(100);
+        assert_eq!(book.usage_baseline()["rawMedian"], 1485.);
+    }
+    #[test]
     fn missing_response_retains_cumulative_task_total_and_partial_quote() {
         let mut b = Book::default();
         b.observe(&record("t", "one", u(100, 0, 0), u(100, 0, 0)), "a", None);
@@ -296,6 +427,40 @@ impl Book {
             .and_then(|id| self.turns.get(id))
             .or_else(|| self.order.last().and_then(|id| self.turns.get(id)))
     }
+    pub fn usage_baseline(&self) -> Value {
+        let Some(current) = self.latest() else {
+            return json!({"count":0,"rawMedian":null,"usedMedian":null});
+        };
+        let mut previous: Vec<_> = self
+            .turns
+            .values()
+            .filter(|turn| {
+                turn.sequence < current.sequence
+                    && turn.status == "completed"
+                    && !turn.usage_partial
+                    && turn.usage.as_ref().is_some_and(|u| !u.cache_missing)
+                    && turn
+                        .completed_at
+                        .zip(current.started_at)
+                        .is_none_or(|(end, start)| end <= start)
+            })
+            .collect();
+        previous.sort_by_key(|turn| (turn.completed_at, turn.sequence));
+        let previous: Vec<_> = previous.into_iter().rev().take(20).collect();
+        let median = |mut values: Vec<u64>| -> Option<f64> {
+            values.sort_unstable();
+            let count = values.len();
+            if count == 0 {
+                return None;
+            }
+            Some(if count % 2 == 0 {
+                values[count / 2 - 1] as f64 / 2. + values[count / 2] as f64 / 2.
+            } else {
+                values[count / 2] as f64
+            })
+        };
+        json!({"count":previous.len(),"rawMedian":median(previous.iter().map(|t| t.usage.as_ref().unwrap().raw_total()).collect()),"usedMedian":median(previous.iter().map(|t| t.usage.as_ref().unwrap().used()).collect())})
+    }
     pub fn observe(&mut self, e: &Value, thread: &str, context: Option<Value>) {
         let ty = e["type"].as_str().unwrap_or("");
         let p = &e["payload"];
@@ -415,11 +580,11 @@ impl Book {
                 }
                 let model = p["model"].as_str().unwrap_or(&self.model).to_owned();
                 let tier = p["service_tier"].as_str().unwrap_or(&self.tier).to_owned();
-                if let Some(pos) = t
+                let legacy_match = t
                     .responses
                     .iter()
-                    .rposition(|r| r.id.starts_with("legacy:") && r.at == at && r.usage == u)
-                {
+                    .rposition(|r| r.id.starts_with("legacy:") && r.at == at && r.usage == u);
+                if let Some(pos) = legacy_match {
                     t.responses.remove(pos);
                 }
                 t.responses.push(Response {
@@ -432,7 +597,7 @@ impl Book {
                 });
                 if let Some(snapshot) = Usage::from(&p["turn_token_usage"]) {
                     t.usage = Some(snapshot);
-                } else {
+                } else if legacy_match.is_none() {
                     t.usage_partial |= t.started_at.is_none();
                     t.usage.get_or_insert_with(Usage::default).add(&u);
                 }
@@ -459,6 +624,23 @@ impl Book {
                                     long: p["info"]["last_token_usage"]["input_tokens"]
                                         .as_u64()
                                         .is_some_and(|n| n > 272_000),
+                                    usage: u,
+                                });
+                            }
+                        } else {
+                            t.usage_partial = true;
+                            t.missing_response = true;
+                            if let Some(mut u) = Usage::from(&p["info"]["last_token_usage"]) {
+                                if self.long_write {
+                                    u.write_long = u.write;
+                                }
+                                t.usage.get_or_insert_with(Usage::default).add(&u);
+                                t.responses.push(Response {
+                                    id: format!("legacy:{at}:{}", cur.total),
+                                    at,
+                                    model: self.model.clone(),
+                                    tier: self.tier.clone(),
+                                    long: u.input > 272_000,
                                     usage: u,
                                 });
                             }

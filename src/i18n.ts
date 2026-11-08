@@ -1,5 +1,17 @@
 export type Language = 'tr' | 'en';
 const en: Record<string, string> = {
+  'K = bin; M = milyon; B = milyar token.':'K = thousand; M = million; B = billion tokens.',
+  'Tahmini pay = resmi yüzde × tahmini kapasite; ölçülen hesap tüketimi değildir.':'Estimated share = official percent × projected capacity; not measured account spending.',
+  'CLI Used bir kota ölçüsü değildir; cache de kota tüketebilir.':'CLI Used is not a quota measure; cached input may also consume quota.',
+  'Görev tüketimi arttı':'Task usage spike','Görev hacmi arttı':'Task volume spike','Yüksek görev hacmi':'High task volume','Görev tüketimi uyarısı':'Task usage warning','tipik görev':'typical task','En az':'At least',
+  'Bu uyarı yerel bir kullanım kuralıdır; resmi kota veya fatura değildir.':'This is a local usage rule, not an official quota or bill.',
+  'Raw Total = Input + Output. CLI Used = Input − Cache + Output.':'Raw Total = Input + Output. CLI Used = Input − Cache + Output.',
+  'Son 20 tamamlanan ana görev; karşılaştırma için en az 5 ölçüm gerekir.':'Uses up to 20 previous completed main tasks; comparison requires at least 5 measurements.',
+  'Subagent tüketimi ayrı tutulur.':'Subagent usage remains separate.',
+  'CLI Used · cache hariç':'CLI Used · excludes cache','Raw Total · cache dahil':'Raw Total · includes cache',
+  'CLI Used = Input − Cache + Output.':'CLI Used = Input − Cache + Output.',
+  'Raw Total = Input + Output; Cache ve Reasoning tekrar eklenmez.':'Raw Total = Input + Output; Cache and Reasoning are not added again.',
+  'Tahmini API maliyeti; abonelik faturası değildir.':'Estimated API cost, not your subscription bill.',
   'Fit zamanında kaydedilen durum; yeniden doğrulanmadı.':'Status recorded at fit time; not revalidated.',
   'Codex session kaydından; abonelikten tahmin edilmez.':'From the Codex session record; not inferred from the subscription.',
   'N/C/O dağılımı':'N/C/O mix','Kaydedilmemiş dağılım':'Mix not recorded','current-observed-window-mix':'Observed window mix','equal-weight-legacy':'Legacy equal-weight estimate',
