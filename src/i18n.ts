@@ -5,7 +5,7 @@ const en: Record<string, string> = {
   'estimated_capacity_change':'Estimated capacity change','within_model_error':'Within model error','weights_relearned':'Weights recalibrated','ratio_recalibration':'Weekly ratio recalibrated','usage_mix_changed':'Usage mix changed',
   'Görevle eşleşen subagent tüketimi':'Subagent usage linked to this task','Ana görev toplamına eklenmez; eksik ilişkiler dışarıda kalır.':'Separate from the main task; missing links are excluded.',
   'Görev tüketimi':'Task usage','Context geçmişi':'Context history','5 saatlik kapasite geçmişi':'5-hour capacity history','Haftalık kapasite geçmişi':'Weekly capacity history',
-  'Görev':'Task','Cache dışı input':'Uncached input','Referans kapasite':'Reference capacity','Varsayım':'Assumed','Resmi kullanım':'Official usage','Grafik ölçümü':'Chart metric',
+  'Görev':'Task','Cache dışı input':'Uncached input','Referans kapasite':'Reference capacity','Ham token kapasite tahmini':'Projected raw token capacity','Ham token tahmini':'Raw tokens (estimated)','Ham kapasite mevcut gözlenen N/C/O dağılımına göre değişir; resmi sabit kota değildir.':'Raw capacity changes with the currently observed N/C/O mix; it is not a fixed official allowance.','Varsayım':'Assumed','Resmi kullanım':'Official usage','Grafik ölçümü':'Chart metric',
   'Görev sonunda ölçülen context':'Context measured at task end','Cache dışı input eşdeğeri':'Uncached input equivalent','N eşdeğeri':'N equivalent',
   'Tahmini kapasite değişimi; backend kota değişimi olarak doğrulanamaz.':'Estimated capacity changes; backend quota changes cannot be isolated.',
   'Yalnızca tamamlanan görevler; eksik ölçümler doldurulmaz.':'Completed tasks only; missing measurements stay missing.',
