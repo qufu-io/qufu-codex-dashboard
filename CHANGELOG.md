@@ -2,12 +2,14 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
-## Unreleased
+## 1.0.6 — 2026-11-08
 
 - Give quota amounts and learning status separate space; preserve English K/M/B token units at 300 px.
 - Add local task-volume and history-relative usage notices; explain CLI Used versus Raw Total in charts.
 - Fix legacy/new task response double counting and retain known usage across legacy counter resets, marking missing coverage partial.
 - Preserve original historical records; old stored task graphs are not retroactively recomputed.
+
+See [bilingual release notes](docs/CHANGES-1.0.6.md).
 
 ## 1.0.5 — 2026-11-08
 
