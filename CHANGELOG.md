@@ -2,6 +2,15 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
+## 1.0.5 — 2026-11-08
+
+- Add usage-mix-dependent raw quota projections alongside the fixed reference capacity and official percentages.
+- Fix reference-based change analysis, same-regime chronological validation and plan/reset mix boundaries; clearly label provisional data.
+- Preserve historical records and missing-mix gaps; restore CLI Used task-history default.
+- Hide the five-hour card for personal Pro plans and clarify measured session context capacity.
+
+See [bilingual release notes](docs/CHANGES-1.0.5.md) and [technical review](docs/PR1_REVIEW.md).
+
 ## 1.0.4 — 2026-10-29
 
 - Isolate quota observations, history and independent hourly/weekly models by a pseudonymous verified account identity.

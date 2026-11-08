@@ -3,9 +3,9 @@
 ## Visibility and ownership
 
 - Public MIT source: `qufu-io/qufu-codex-dashboard`.
-- Public downloads: `qufu-io/qufu-codex-dashboard-releases`.
+- Public downloads and signed updater: `qufu-io/qufu-codex-dashboard` (consolidated since 1.0.4).
 - MIT-licensed open source since 2026-10-24. Author: alper@qufu.io.
-- Keep application sources in the source repository; the separate downloads repository contains documentation, license/notices and signed packages. Never publish local Codex data, signing keys, credentials, build caches or private diagnostics. See [licensing transition](LICENSING.md) for legacy 1.0 packages.
+- Keep sources, documentation and verified signed packages in the consolidated repository; the former downloads repository is legacy. Never publish local Codex data, signing keys, credentials, build caches or private diagnostics. See [licensing transition](LICENSING.md) for legacy 1.0 packages.
 
 ## Acceptance gate
 
@@ -22,7 +22,7 @@ The owner explicitly authorized publication of the measurement, quota calibratio
 
 ## Updates
 
-Settings checks `https://github.com/qufu-io/qufu-codex-dashboard-releases/releases/latest/download/latest.json`. No login/token is needed. Installation requires an explicit click and a matching package signature and signed version. Only newer versions are offered; republishing 1.0 does not trigger an update for an installed 1.0. Network/missing manifest failures are not reported as up-to-date.
+The application checks `https://github.com/qufu-io/qufu-codex-dashboard/releases/latest/download/latest.json`. No login/token is needed. Installation requires an explicit click and a matching package signature and signed version. Only newer versions are offered; republishing 1.0 does not trigger an update for an installed 1.0. Network/missing manifest failures are not reported as up-to-date.
 
 ## Boundaries
 
@@ -70,3 +70,8 @@ The owner authorized per-account quota isolation and consolidation into `qufu-io
 ## Published 1.0.4 in the consolidated source repository — 2026-10-29
 
 Source/tag: `891d90e3b9ff289c739fe1531bf3ee4a2805fc8f` / `v1.0.4`. [Source CI 40770229210](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40770229210) passed 65 Rust and 34 Playwright tests on each of Windows and Ubuntu 22.04. [Signed CI 40770229385](https://github.com/qufu-io/qufu-codex-dashboard/actions/runs/40770229385) passed for Windows NSIS/portable and Linux DEB/AppImage. All three package signatures, signed version and tamper rejection passed. All nine [public assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.4) were downloaded anonymously and matched local SHA-256 digests. The latest manifest serves 1.0.4 and five platform aliases from this repository. The CI-built EXE read a live account-scoped quota snapshot in diagnostic mode without exposing raw identity. Real A/B login switching and clean-host installation remain unverified; synthetic regressions cover isolation and continuity. The old distribution repository was not modified or deleted. Existing old-endpoint installations require a manual 1.0.4 install before owner-managed removal of that repository.
+
+
+## Authorized 1.0.5 — 2026-11-08
+
+The owner explicitly authorized release 1.0.5 and delivery through in-app updates following PR #1 review/merge. Use the consolidated source repository for the immutable tag, signed Windows NSIS/portable and Linux DEB/AppImage packages, checksums and latest.json. Keep the signing public key and data/settings intact. Require exact-source Windows/Ubuntu CI, signed builds, signature/signed-version/tamper verification and anonymous asset/manifest verification. The version increase enables normal signed updates from 1.0.4; older legacy-endpoint versions still require manual installation. The release workflow only builds artifacts; publish the verified asset set explicitly.
