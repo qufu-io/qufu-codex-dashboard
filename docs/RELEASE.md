@@ -93,3 +93,8 @@ The owner explicitly authorized merging PR #3 after CI passes, then publishing 1
 ## Authorized 1.0.7 — 2026-11-13
 
 The owner explicitly authorized merging PR #5 after successful CI and publishing 1.0.7 with signed in-app updates. Preserve original quota/history data and settings, and keep the signing public key and consolidated endpoint. Require exact-source Windows/Ubuntu checks, signed builds, signature/signed-version/tamper verification and anonymous asset/latest-manifest verification. Publish a new immutable v1.0.7 tag and bilingual notes clearly identifying the API-priced weekly scenario and Auto Review proxy as assumptions. Never overwrite existing tags/releases.
+
+
+## Authorized 1.0.8 — 2026-11-14
+
+The owner authorized the compact weekly quota label, three-decimal quota fractions, successful CI, merge and a new release. Publish an immutable v1.0.8 source tag and signed Windows NSIS/optional portable packages only. Keep historical Linux downloads through 1.0.7. Require exact-source source checks, signed Windows build, one NSIS signature/signed-version/tamper verification and anonymous asset/manifest verification. Preserve the updater public key, endpoint, settings and databases. This release changes presentation, not the underlying weekly scenario or official quota percentages.
