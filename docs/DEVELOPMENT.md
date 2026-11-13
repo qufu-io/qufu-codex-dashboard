@@ -1,3 +1,7 @@
+# Current distribution policy
+
+Official packages are Windows-only for future releases. Linux source checks may remain on GitHub-hosted CI; a local WSL VM is not required. Historical Linux binaries through 1.0.7 remain available. Linux dependencies below are for contributors/portability work only; explicit manual Linux builds are outside the official release workflow.
+
 # Development / Geliştirme
 
 ## Prerequisites

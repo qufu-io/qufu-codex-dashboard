@@ -58,7 +58,7 @@ test('manual selection, metrics, details and settings',async({page})=>{
 test('quota card prefers projected raw capacity and preserves the official percentage',async({page})=>{
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const result=await base(cmd,args);if(cmd==='snapshot')result.quota.value.primary.token_estimate={used:42000000,capacity:100000000,rawUsed:126000000,rawCapacity:300000000,approximate:true,intervals:20,resets:4,reliability:'limited',localTokens:120000000};return result;};});
  await page.getByRole('button',{name:'Refresh',exact:true}).click();
- await expect(page.locator('#five .quota-amount')).toContainText('126M / 300M');
+ await expect(page.locator('#five .quota-amount')).toContainText('126.000M / 300.000M');
  await expect(page.locator('#five .quota-amount')).toContainText('Token');
  await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/not a fixed official allowance/);
  await expect(page.getByRole('progressbar',{name:'5-hour account limit'})).toHaveAttribute('aria-valuenow','42');
@@ -239,7 +239,7 @@ test('approved presentation uses prefix percentages and suffix dollars in both l
 });
 
 test('quota amounts are labeled estimates and missing calibration stays unknown',async({page})=>{
- await expect(page.locator('#five .quota-amount')).toHaveText('≈ 42M / 100M N equivalent');
+ await expect(page.locator('#five .quota-amount')).toHaveText('≈ 42.000M / 100.000M N equivalent');
  await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/not an official token quota/);
  await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/Typical error: %20.0/);
  await expect(page.locator('#week .quota-amount')).toHaveText('(—/— Token)');
@@ -332,7 +332,7 @@ test('USD fallback and incomplete agents remain visible as approximate partial d
 });
 test('unvalidated capacity never invents errors and retains measured local tokens',async({page})=>{
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.quota.value.primary.token_estimate={used:null,capacity:null,localTokens:40000,approximate:true,intervals:0,resets:0,medianErrorPercent:null,p90ErrorPercent:null,reliability:'insufficient'};return v;};});
- await page.locator('#refresh').click();await expect(page.locator('#five .quota-amount')).toHaveText('40K / — Token');await expect(page.locator('#five .quota-amount')).not.toHaveAttribute('title',/Typical error/);await expect(page.locator('#five .limit-top strong')).toHaveText('%42');
+ await page.locator('#refresh').click();await expect(page.locator('#five .quota-amount')).toHaveText('40.000K / — Token');await expect(page.locator('#five .quota-amount')).not.toHaveAttribute('title',/Typical error/);await expect(page.locator('#five .limit-top strong')).toHaveText('%42');
 });
 
 
@@ -504,8 +504,8 @@ for(const plan of ['pro','prolite','promax']) test(`Pro family ${plan} hides fiv
 for(const reliability of ['learning','limited','validated','unstable','insufficient']) test(`quota confidence ${reliability} is explicit`,async({page})=>{
  await page.evaluate(reliability=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.quota.value.primary.token_estimate={used:42e6,capacity:100e6,rawUsed:126e6,rawCapacity:300e6,approximate:true,intervals:20,resets:4,reliability,localTokens:40e3};return v;};},reliability);
  await page.locator('#refresh').click();const amount=page.locator('#five .quota-amount');
- if(['unstable','insufficient'].includes(reliability)){await expect(amount).toHaveText('40K / — Token');}
- else{await expect(amount).toContainText('126M / 300M');await expect(amount).toHaveAttribute('title',/not a fixed official allowance/);if(reliability==='learning')await expect(amount).toContainText('Learning');}
+ if(['unstable','insufficient'].includes(reliability)){await expect(amount).toHaveText('40.000K / — Token');}
+ else{await expect(amount).toContainText('126.000M / 300.000M');await expect(amount).toHaveAttribute('title',/not a fixed official allowance/);if(reliability==='learning')await expect(amount).toContainText('Learning');}
  await expect(page.getByRole('progressbar',{name:'5-hour account limit'})).toHaveAttribute('aria-valuenow','42');
  await fitWindow(page);expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth||document.documentElement.scrollHeight>innerHeight)).toBe(false);
 });
@@ -528,12 +528,18 @@ for(const language of ['en','tr']) test(`weekly billion capacity ${language} rem
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'){v.quota.value.secondary.used_percent=5;v.quota.value.secondary.token_estimate={used:164e6,capacity:3280e6,rawUsed:164e6,rawCapacity:3280e6,reliability:'learning',approximate:true,localTokens:120e6,intervals:1,resets:1};}return v;};});
  if(language==='tr'){await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#language').selectOption('tr');await page.locator('#theme').selectOption('light');await fitPanel(page);await page.locator('#settingsToggle').click();}
  await page.locator('#refresh').click();await fitWindow(page);
- await expect(page.locator('#week .quota-value')).toHaveText('≈ 164M / 3.28B Token');
+ await expect(page.locator('#week .quota-value')).toHaveText('≈ 164.000M / 3.280B Token');
  await expect(page.locator('#week .quota-confidence')).toHaveText(language==='en'?'Learning':'Öğreniliyor');
  await expect(page.locator('#week .quota-amount')).toHaveAttribute('title',language==='en'?/B = billion/:/B = milyar/);
  await expect(page.getByRole('progressbar',{name:language==='en'?'Weekly account limit':'Haftalık hesap limiti'})).toHaveAttribute('aria-valuenow','5');
  const bounds=await page.locator('#week').evaluate(e=>{const v=e.querySelector('.quota-value')!.getBoundingClientRect(),c=e.querySelector('.quota-confidence')!.getBoundingClientRect();return {right:v.right,confidence:c.left,width:innerWidth,scroll:document.documentElement.scrollWidth};});
  expect(bounds.right).toBeLessThanOrEqual(bounds.confidence);expect(bounds.scroll).toBeLessThanOrEqual(bounds.width);
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.quota.value.secondary.token_estimate.solEquivalent={used:1150123456,capacity:3500123456,intervals:4,observedIntervals:23,reliability:'learning'};return v;};});
+ await page.locator('#refresh').click();await fitWindow(page);
+ await expect(page.locator('#week .quota-value')).toHaveText('≈ 1.150B / 3.500B Token');
+ await expect(page.locator('#week .quota-value')).not.toContainText(/Sol|equivalent|assumption|eşdeğer|varsayım/i);
+ await expect(page.locator('#week .quota-amount')).toHaveAttribute('title',language==='en'?/not an official quota/:/resmi kota değildir/);
+ const solBounds=await page.locator('#week .quota-amount').evaluate(e=>({width:e.clientWidth,scroll:e.scrollWidth}));expect(solBounds.scroll).toBeLessThanOrEqual(solBounds.width);
  await page.screenshot({path:`artifacts/weekly-billion-${language}.png`});
 });
 

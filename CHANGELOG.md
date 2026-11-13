@@ -2,6 +2,14 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
+## 1.0.8 — 2026-11-14
+
+- Shorten the weekly quota card to its approximate numeric fraction; keep scenario assumptions in the tooltip and history.
+- Show three decimal places on both sides of quota token fractions, with K/M/B units.
+- Produce Windows packages only for new releases; preserve historical Linux downloads.
+
+See [bilingual release notes](docs/CHANGES-1.0.8.md).
+
 ## 1.0.7 — 2026-11-13
 
 - Add an explicitly assumed weekly Sol 6.1-equivalent view with fixed bundled API ratios and a robust scalar calibration.

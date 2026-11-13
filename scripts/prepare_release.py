@@ -18,13 +18,13 @@ for p in files:
             raise SystemExit(f'Asset name collision: {normalized.name}')
         p.rename(normalized)
 files = sorted(p for p in root.iterdir() if p.is_file() and p.suffix in ['.exe', '.deb', '.AppImage', '.sig'])
-expected = {f'Qufu.Codex.Dashboard_{args.version}{suffix}' for suffix in ['_x64-setup.exe', '_amd64.deb', '_amd64.AppImage']}
+expected = {f'Qufu.Codex.Dashboard_{args.version}{suffix}' for suffix in ['_x64-setup.exe']}
 allowed = expected | {name + '.sig' for name in expected} | {f'QufuCodexDashboard-{args.version}.exe'}
 extra = [p.name for p in files if p.name not in allowed]
 if extra:
     raise SystemExit(f'Unexpected distribution assets: {extra}')
 platforms = {}
-for suffix, targets in [('_x64-setup.exe', ['windows-x86_64', 'windows-x86_64-nsis']), ('_amd64.AppImage', ['linux-x86_64', 'linux-x86_64-appimage']), ('_amd64.deb', ['linux-x86_64-deb'])]:
+for suffix, targets in [('_x64-setup.exe', ['windows-x86_64', 'windows-x86_64-nsis'])]:
     packages = [p for p in files if p.name.endswith(suffix)]
     if len(packages) != 1:
         raise SystemExit(f'Expected one {suffix} package')

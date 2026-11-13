@@ -48,11 +48,11 @@ function quotaHTML(w:QuotaWindow|undefined,title:string){
  const usable=e?.reliability!=='unstable'&&e?.reliability!=='insufficient';
  const provisional=!!e&&!['validated','limited'].includes(e.reliability??'');
  const estimated=valid&&usable&&e?.approximate&&e.used!=null&&e.capacity!=null&&Number.isFinite(e.used)&&Number.isFinite(e.capacity)&&e.used>=0&&e.capacity>0;
- const compact=compactTokens;
+ const compact=(value:number)=>Intl.NumberFormat('en-US',{notation:'compact',minimumFractionDigits:3,maximumFractionDigits:3}).format(value);
  const rawEstimated=valid&&usable&&e?.approximate&&e.rawUsed!=null&&e.rawCapacity!=null&&Number.isFinite(e.rawUsed)&&Number.isFinite(e.rawCapacity)&&e.rawUsed>=0&&e.rawCapacity>0;
  const sol=w?.window_minutes===10080?e?.solEquivalent:null;
  const solEstimated=valid&&sol?.capacity!=null&&sol.used!=null&&Number.isFinite(sol.capacity)&&Number.isFinite(sol.used);
- const amount=solEstimated?`≈ ${compact(sol!.used!)} / ${compact(sol!.capacity!)} ${t('Sol 6.1 eşdeğeri (varsayım)')}`:rawEstimated?`≈ ${compact(e!.rawUsed!)} / ${compact(e!.rawCapacity!)} Token`:estimated?`≈ ${compact(e.used!)} / ${compact(e.capacity!)} ${t('N eşdeğeri')}`:e?.localTokens!=null?`${compact(e.localTokens)} / — Token`:'(—/— Token)';
+ const amount=solEstimated?`≈ ${compact(sol!.used!)} / ${compact(sol!.capacity!)} Token`:rawEstimated?`≈ ${compact(e!.rawUsed!)} / ${compact(e!.rawCapacity!)} Token`:estimated?`≈ ${compact(e.used!)} / ${compact(e.capacity!)} ${t('N eşdeğeri')}`:e?.localTokens!=null?`${compact(e.localTokens)} / — Token`:'(—/— Token)';
  const measured=e?.localTokens!=null?`${t('Kayıtlı yerel tüketim')}: ${exact(e.localTokens)}. `:'';
  const errors=e?.medianErrorPercent!=null&&e.p90ErrorPercent!=null?`${t('Tipik sapma')}: %${e.medianErrorPercent.toFixed(1)}; ${t('Yüzde 90 hata sınırı')}: %${e.p90ErrorPercent.toFixed(1)}. `:'';
  const reference=estimated?`${t('Referans kapasite')}: ${exact(e.capacity)} ${t('Cache dışı input eşdeğeri')}. `:'';

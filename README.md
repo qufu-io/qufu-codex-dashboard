@@ -4,9 +4,11 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 
 [![Source checks](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/qufu-io/qufu-codex-dashboard)](https://github.com/qufu-io/qufu-codex-dashboard/releases/latest)
 
-**Open source · MIT · Version 1.0.7 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
+**Open source · MIT · Version 1.0.8 · Windows · Author: [alper@qufu.io](mailto:alper@qufu.io)**
 
-[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.7](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.7) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
+**Future releases are Windows-only. Linux packages remain available in historical releases through 1.0.7. / Yeni resmî paketler yalnız Windows için üretilecek; Linux paketleri 1.0.7 ve önceki yayınlarda kalır.**
+
+[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.8](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.8) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 
 <p align="center">
   <img src="docs/images/dashboard-1.0.6.png" width="300" alt="Qufu Codex Dashboard with illustrative workspace and task measurements">
@@ -14,7 +16,7 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 
 *Illustrative data; no personal session information. / Örnek veriler; kişisel session bilgisi içermez.*
 
-[What’s new / Yenilikler](docs/CHANGES-1.0.7.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
+[What’s new / Yenilikler](docs/CHANGES-1.0.8.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
 
 | Measurement / Ölçüm | Source and meaning / Kaynak ve anlam |
 | --- | --- |
@@ -43,16 +45,14 @@ Qufu Codex Dashboard, Codex kullanımını küçük bir masaüstü penceresinden
 
 Uygulama **ücretsiz ve MIT lisanslı açık kaynaklıdır**. [Kaynak kodunu](https://github.com/qufu-io/qufu-codex-dashboard) inceleyebilir, değiştirebilir ve lisans koşullarıyla paylaşabilirsin. İndirme için GitHub hesabı gerekmez.
 
-1. [1.0.7 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.7).
+1. [1.0.8 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.8).
 2. **Assets** bölümünü genişlet.
 3. İşletim sistemine uygun paketi indir:
 
 | Platform | Paket | Kurulum |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Dosyayı çalıştır; kurulumdan sonra Başlat menüsünden aç. |
-| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.7.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
-| Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./indirilen-dosya.deb` |
-| Linux x64 | `*_amd64.AppImage` | `chmod +x indirilen-dosya.AppImage` ardından dosyayı çalıştır. |
+| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.8.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
 
 **Gereksinimler:** Yerel session verisi oluşturan Codex kurulumu. Canlı hesap limitleri için oturum açılmış Codex CLI (`codex` komutu PATH üzerinde) gerekir. Windows kurucusu WebView2'yi kontrol eder; eksikse internetten indirip otomatik kurar. WebView2 kurulumu başarısız olursa uygulama kurulumu durur. Linux'ta WebKitGTK 4.1 ve çalışan bir masaüstü oturumu gerekir; GNOME'da tray için AppIndicator eklentisi gerekebilir. Wayland, pencere konumunu ve her zaman üstte davranışını sınırlandırabilir.
 
@@ -113,14 +113,12 @@ Qufu Codex Dashboard is a compact Tauri 2 desktop monitor for local Codex usage 
 
 The application is **free and open source under MIT**. [Browse, modify and contribute to the source](https://github.com/qufu-io/qufu-codex-dashboard). Downloads are public and require no GitHub account.
 
-Open [Release 1.0.7 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.7) and select your package:
+Open [Release 1.0.8 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.8) and select your package:
 
 | Platform | Package | Installation |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Run the installer, then open the app from the Start menu. |
-| Windows x64 portable | `QufuCodexDashboard-1.0.7.exe` | Run the executable; WebView2 must be installed. |
-| Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./downloaded-file.deb` |
-| Linux x64 | `*_amd64.AppImage` | `chmod +x downloaded-file.AppImage`, then run it. |
+| Windows x64 portable | `QufuCodexDashboard-1.0.8.exe` | Run the executable; WebView2 must be installed. |
 
 Local Codex session records are required. Live account limits require a signed-in Codex CLI available as `codex` on PATH. The Windows installer detects WebView2 and automatically downloads/installs it when missing; this requires internet access. Installation stops if the runtime cannot be installed. Linux requires WebKitGTK 4.1 and a graphical session; GNOME may need an AppIndicator extension for the tray. Wayland can restrict window positioning and always-on-top behavior.
 
