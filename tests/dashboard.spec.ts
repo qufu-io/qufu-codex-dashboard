@@ -518,7 +518,7 @@ for(const language of ['en','tr']) test(`raw quota history ${language} preserves
   (window as any).__TAURI_INTERNALS__={invoke:async()=>({fits,points:[]})};
  },language);
  await page.setViewportSize({width:480,height:300});await page.goto('http://127.0.0.1:5173/?history=1');
- await expect(page.locator('#historyView')).toHaveValue('raw');await expect(page.locator('.history-mark')).toHaveCount(3);await expect(page.locator('.history-line')).toHaveCount(0);
+ await expect(page.locator('#historyView')).toHaveValue('sol');await page.locator('#historyView').selectOption('raw');await expect(page.locator('.history-mark')).toHaveCount(3);await expect(page.locator('.history-line')).toHaveCount(0);
  await page.locator('.history-mark').first().focus();await expect(page.locator('#historyDetail')).toContainText(language==='en'?'N/C/O mix':'N/C/O dağılımı');
  await expect(page.locator('.history-notice')).toContainText(language==='en'?'not a fixed official allowance':'resmi sabit kota değildir');
  await page.screenshot({path:`artifacts/pr1-raw-history-${language}.png`});
@@ -557,4 +557,24 @@ test('task chart explains CLI Used and Raw Total without changing measurements',
  await page.locator('.history-mark').focus();await expect(page.locator('#historyDetail')).toContainText('Used 400 · Raw 1,200');
  await page.locator('#historyView').selectOption('raw');await expect(page.locator('.history-notice')).toContainText('Cache and Reasoning are not added again');
  await page.screenshot({path:'artifacts/history-raw-explanation.png'});
+});
+
+test('weekly history keeps original data alongside provisional Sol replay',async({page})=>{
+ await page.addInitScript(()=>{
+  (window as any).__QUFU_HISTORY__={metric:'week',selected:null,language:'en',theme:'dark'};
+  const points=[{at:100,percent:35,reset:900,plan:'pro',limitId:'codex'}];
+  const fits=[{...points[0],reliability:'validated',identifiable:true,capacity:5e8,rawCapacity:7e8}];
+  const solFits=[{...points[0],reliability:'learning',capacity:2.4e9,intervals:4,observedIntervals:23}];
+  (window as any).__TAURI_INTERNALS__={invoke:async(cmd:string)=>cmd==='history'?{fits,points,solFits,strictSolFits:[]}:null};
+ });
+ await page.goto('http://127.0.0.1:5173/?history=1');
+ await expect(page.locator('#historyView')).toHaveValue('sol');
+ await expect(page.locator('.history-mark')).toHaveCount(1);
+ await page.locator('.history-mark').first().focus();
+ await expect(page.locator('#historyDetail')).toContainText('4 / 23');
+ await expect(page.locator('.history-notice')).toContainText('Assumes GPT-5.4 pricing for Auto Review');
+ await page.locator('#historyView').selectOption('sol-strict');
+ await expect(page.locator('.history-mark')).toHaveCount(0);
+ await page.locator('#historyView').selectOption('raw');
+ await expect(page.locator('.history-mark')).toHaveCount(1);
 });

@@ -112,6 +112,44 @@ pub fn normalize_tier(tier: &str) -> String {
         v => v.into(),
     }
 }
+
+/// Fixed bundled API short-context ratios for the derived quota projection.
+/// Context length and cache-write detail aren't available in quota samples.
+/// The billed API pricing engine remains independent of this approximation.
+pub fn sol_short_equivalent(model: &str, tier: &str, raw: [f64; 3]) -> Option<[f64; 3]> {
+    static BASIS_CATALOG: OnceLock<Catalog> = OnceLock::new();
+    let book = BASIS_CATALOG
+        .get_or_init(|| serde_json::from_str(include_str!("../prices.json")).unwrap_or_default());
+    let sol = book.rates.get("gpt-6.1-sol|standard|short")?;
+    let ratio = book
+        .rates
+        .get(&key(&normalize_model(model), &normalize_tier(tier), false))?;
+    let prices = [Some(ratio.input), ratio.cache, Some(ratio.output)];
+    let basis = [Some(sol.input), sol.cache, Some(sol.output)];
+    let mut normalized = [0.; 3];
+    for j in 0..3 {
+        if !raw[j].is_finite() || raw[j] < 0. {
+            return None;
+        }
+        if raw[j] != 0. {
+            let numerator = prices[j]?;
+            let denominator = basis[j]?;
+            if !numerator.is_finite()
+                || !denominator.is_finite()
+                || numerator <= 0.
+                || denominator <= 0.
+            {
+                return None;
+            }
+            normalized[j] = raw[j] * numerator / denominator;
+            if !normalized[j].is_finite() {
+                return None;
+            }
+        }
+    }
+    Some(normalized)
+}
+
 fn cells(line: &str) -> Vec<String> {
     line.trim_matches('|')
         .split('|')

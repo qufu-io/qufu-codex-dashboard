@@ -267,9 +267,17 @@ fn fit(rows: &[&Interval]) -> Model {
     m
 }
 fn validation(rows: &[Interval], regression: bool) -> (Option<f64>, Option<f64>, usize) {
+    validation_with(rows, regression, 2, fit)
+}
+fn validation_with(
+    rows: &[Interval],
+    regression: bool,
+    skip: usize,
+    fit_model: fn(&[&Interval]) -> Model,
+) -> (Option<f64>, Option<f64>, usize) {
     let resets: BTreeSet<_> = rows.iter().map(|r| r.reset).collect();
     let mut errors = Vec::new();
-    for reset in resets.into_iter().skip(2) {
+    for reset in resets.into_iter().skip(skip) {
         let start = rows
             .iter()
             .filter(|r| r.reset == reset)
@@ -283,7 +291,7 @@ fn validation(rows: &[Interval], regression: bool) -> (Option<f64>, Option<f64>,
         if train.len() < 4 {
             continue;
         }
-        let model = fit(&train);
+        let model = fit_model(&train);
         if model.regression != regression {
             continue;
         }
@@ -487,6 +495,239 @@ fn account_estimate(samples: &[Sample], points: &[Point], quota: &Value, key: &s
         quota["at"].as_i64().unwrap_or(0),
     )
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SolBasis {
+    Strict,
+    Review54,
+}
+impl SolBasis {
+    fn id(self) -> &'static str {
+        match self {
+            Self::Strict => "sol-6.1-api-short-v1",
+            Self::Review54 => "sol-6.1-api-short-review54-scalar-v1",
+        }
+    }
+    fn review_proxy(self) -> Option<&'static str> {
+        match self {
+            Self::Strict => None,
+            Self::Review54 => Some("gpt-5.4"),
+        }
+    }
+}
+fn fit_scalar(rows: &[&Interval]) -> Model {
+    Model {
+        common: fit_coefficients(rows, false),
+        groups: BTreeMap::new(),
+        regression: false,
+    }
+}
+
+fn sol_intervals(rows: Vec<Interval>, basis: SolBasis) -> (Vec<Interval>, usize) {
+    let observed = rows.len();
+    let mut accepted = Vec::new();
+    for mut row in rows {
+        let mut x = [0.; 3];
+        let mut normalized = BTreeMap::new();
+        for (group, raw) in &row.groups {
+            let mut fields = group.split('|');
+            let model = fields.next().unwrap_or("");
+            let tier = fields.next().unwrap_or("");
+            let model = if model.eq_ignore_ascii_case("codex-auto-review")
+                && crate::pricing::normalize_tier(tier) == "standard"
+            {
+                basis.review_proxy().unwrap_or(model)
+            } else {
+                model
+            };
+            let Some(eq) = crate::pricing::sol_short_equivalent(model, tier, *raw) else {
+                break;
+            };
+            for j in 0..3 {
+                x[j] += eq[j];
+            }
+            normalized.insert(group.clone(), eq);
+        }
+        // Omitting a model while keeping the entire official delta would
+        // incorrectly attribute its quota consumption to the known models.
+        if normalized.len() != row.groups.len() || x.iter().sum::<f64>() <= 0. {
+            continue;
+        }
+        row.x = x;
+        row.groups = normalized;
+        accepted.push(row);
+    }
+    (accepted, observed)
+}
+
+fn sol_fit(rows: &[Interval], observed: usize, at: i64, percent: f64, basis: SolBasis) -> Value {
+    let hi = rows.partition_point(|r| r.at <= at);
+    let rows = &rows[hi.saturating_sub(240)..hi];
+    let mut result = json!({
+        "basis": basis.id(), "capacity": null, "used": null, "reviewProxy": basis.review_proxy(),
+        "proxyIntervals": if basis.review_proxy().is_some() { rows.iter().filter(|r| r.groups.keys().any(|key| key.split('|').next().is_some_and(|name| name.eq_ignore_ascii_case("codex-auto-review")))).count() } else { 0 },
+        "intervals": rows.len(), "observedIntervals": observed,
+        "resets": rows.iter().map(|r| r.reset).collect::<BTreeSet<_>>().len(),
+        "weights": null, "reliability": "insufficient", "method": if basis == SolBasis::Review54 { "fixed-price-scalar" } else { "initial-ratio" },
+        "identifiable": false, "validationCount": 0, "percent": percent,
+    });
+    if rows.is_empty() {
+        return result;
+    }
+    let refs = rows.iter().collect::<Vec<_>>();
+    let (model, (typical, p90, count)) = match basis {
+        SolBasis::Strict => {
+            let m = fit(&refs);
+            let metrics = validation(rows, m.regression);
+            (m, metrics)
+        }
+        SolBasis::Review54 => (
+            fit_scalar(&refs),
+            validation_with(rows, false, 1, fit_scalar),
+        ),
+    };
+    let enough_cohorts = rows.iter().map(|r| r.reset).collect::<BTreeSet<_>>().len() >= 3;
+    result["medianErrorPercent"] = json!(typical);
+    result["p90ErrorPercent"] = json!(p90);
+    result["validationCount"] = json!(count);
+    result["weights"] = json!(model.common.map(|c| c / 100_000.));
+    result["identifiable"] = json!(model.regression);
+    if model.regression {
+        result["method"] = json!("robust-ridge-independent");
+    }
+    if typical.is_some_and(|v| v > 35.) || p90.is_some_and(|v| v > 100.) {
+        result["reliability"] = json!("unstable");
+        return result;
+    }
+    let capacity = 100. * 100_000. / model.common[0];
+    if capacity.is_finite() && (1. ..=1e13).contains(&capacity) {
+        result["capacity"] = json!(capacity);
+        result["used"] = json!(capacity * percent / 100.);
+        result["reliability"] = json!(if count < 8
+            || match basis {
+                SolBasis::Strict => !model.regression,
+                SolBasis::Review54 => !enough_cohorts,
+            } {
+            "learning"
+        } else if observed > hi || typical.is_some_and(|v| v > 20.) || p90.is_some_and(|v| v > 50.)
+        {
+            "limited"
+        } else {
+            "validated"
+        });
+    }
+    result
+}
+
+fn account_display_estimate(
+    samples: &[Sample],
+    points: &[Point],
+    quota: &Value,
+    key: &str,
+) -> Value {
+    let mut raw = account_estimate(samples, points, quota, key);
+    if raw.is_object() && raw["windowMinutes"] == 10080 {
+        let scope = quota["value"]["account_key"].as_str().unwrap_or("");
+        let limit = quota["value"]["limit_id"].as_str().unwrap_or("");
+        let plan = quota["value"]["plan_type"]
+            .as_str()
+            .filter(|p| !p.is_empty());
+        let at = quota["at"].as_i64().unwrap_or(0);
+        if !scope.is_empty() && !limit.is_empty() && plan.is_some() {
+            let past: Vec<_> = points
+                .iter()
+                .filter(|p| {
+                    p.scope == scope && p.limit == limit && p.at <= at && p.plan.as_deref() == plan
+                })
+                .cloned()
+                .collect();
+            let all = intervals_with_threshold(samples, &past, 10080, plan, 3.);
+            let (rows, count) = sol_intervals(all, SolBasis::Review54);
+            raw["solEquivalent"] = sol_fit(
+                &rows,
+                count,
+                at,
+                raw["percent"].as_f64().unwrap_or(0.),
+                SolBasis::Review54,
+            );
+        }
+    }
+    raw
+}
+
+fn sol_daily_history(
+    data: &Observations,
+    scope: &str,
+    saved: &[Value],
+    basis: SolBasis,
+) -> Vec<Value> {
+    let mut cohorts = BTreeMap::new();
+    let mut checkpoints = BTreeMap::new();
+    for saved in saved {
+        let (Some(at), Some(plan), Some(limit), Some(reset)) = (
+            saved["at"].as_i64(),
+            saved["plan"].as_str(),
+            saved["limitId"].as_str(),
+            saved["reset"].as_i64(),
+        ) else {
+            continue;
+        };
+        if plan.is_empty() || limit.is_empty() {
+            continue;
+        }
+        let Some(at_date) = chrono::DateTime::from_timestamp(at, 0) else {
+            continue;
+        };
+        let day = at_date.with_timezone(&chrono::Local).date_naive();
+        // Daily points plus the earliest and latest saved records on each
+        // split reset window, to show the boundary without replaying every poll.
+        let entry = checkpoints
+            .entry((plan, limit, day, reset))
+            .or_insert((saved, saved));
+        entry.1 = saved;
+    }
+    let mut result = Vec::new();
+    for ((plan, limit, _, _), (first, last)) in checkpoints {
+        let (rows, original) = cohorts.entry((plan, limit)).or_insert_with(|| {
+            let points: Vec<_> = data
+                .points
+                .iter()
+                .filter(|p| p.scope == scope && p.limit == limit && p.plan.as_deref() == Some(plan))
+                .cloned()
+                .collect();
+            let all = intervals_with_threshold(&data.samples, &points, 10080, Some(plan), 3.);
+            let timestamps: Vec<_> = all.iter().map(|r| r.at).collect();
+            let (accepted, _) = sol_intervals(all, basis);
+            (accepted, timestamps)
+        });
+        for point in [first, last] {
+            if let (Some(at), Some(percent)) = (point["at"].as_i64(), point["percent"].as_f64()) {
+                let mut value = sol_fit(
+                    rows,
+                    original.partition_point(|t| *t <= at),
+                    at,
+                    percent,
+                    basis,
+                );
+                value["at"] = json!(at);
+                value["plan"] = json!(plan);
+                value["limitId"] = json!(limit);
+                value["reset"] = point["reset"].clone();
+                value["epoch"] = point["epoch"].clone();
+                result.push(value);
+            }
+        }
+    }
+    result.sort_by_key(|value| value["at"].as_i64());
+    result.dedup_by(|a, b| {
+        a["at"] == b["at"]
+            && a["plan"] == b["plan"]
+            && a["limitId"] == b["limitId"]
+            && a["reset"] == b["reset"]
+    });
+    result
+}
+
 fn legacy_raw_projection(value: &mut Value) {
     if !value["rawCapacity"].is_null() || value["method"] != "initial-ratio" {
         return;
@@ -968,8 +1209,10 @@ impl Store {
         Ok(())
     }
     fn load(&self, unreadable: usize) -> Result<Observations, String> {
-        let mut query = self
-            .connection
+        Self::load_connection(&self.connection, unreadable)
+    }
+    fn load_connection(connection: &Connection, unreadable: usize) -> Result<Observations, String> {
+        let mut query = connection
             .prepare("SELECT u.id,u.at,COALESCE(m.raw_model,u.model),u.tier,u.noncached,u.cached,u.output,COALESCE(m.effort,'') FROM usage u LEFT JOIN usage_metadata m ON m.id=u.id WHERE u.id NOT IN (SELECT id FROM usage_superseded) ORDER BY u.at,u.id")
             .map_err(|e| e.to_string())?;
         let samples: Vec<Sample> = query
@@ -994,8 +1237,7 @@ impl Store {
             .into_iter()
             .filter(|s| unique.insert(s.id.clone()))
             .collect();
-        let mut query = self
-            .connection
+        let mut query = connection
             .prepare("SELECT at,minutes,reset,percent,plan,limit_id,'',0 FROM quota_points UNION ALL SELECT at,minutes,reset,percent,plan,limit_id,scope,epoch FROM account_points ORDER BY at")
             .map_err(|e| e.to_string())?;
         let points = query
@@ -1186,8 +1428,21 @@ impl Estimator {
         let points = rows
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?;
+        drop(q);
+        let (sol_fits, strict_sol_fits) = if minutes == 10080 {
+            Store::load_connection(&c, 0)
+                .map(|data| {
+                    (
+                        sol_daily_history(&data, scope, &fits, SolBasis::Review54),
+                        sol_daily_history(&data, scope, &fits, SolBasis::Strict),
+                    )
+                })
+                .unwrap_or_default()
+        } else {
+            (Vec::new(), Vec::new())
+        };
         Ok(
-            json!({"fits":fits,"points":points,"changeNotice":"Estimated capacity changes; backend quota changes cannot be isolated from usage/model calibration."}),
+            json!({"fits":fits,"points":points,"solFits":sol_fits,"strictSolFits":strict_sol_fits,"changeNotice":"Estimated capacity changes; backend quota changes cannot be isolated from usage/model calibration."}),
         )
     }
     pub fn update_blocking(&mut self, quota: &Value) -> Value {
@@ -1200,7 +1455,7 @@ impl Estimator {
         self.update(quota)
     }
     pub fn diagnostics(&self, quota: &Value) -> Value {
-        json!({"samples":self.samples.len(),"points":self.points.len(),"unreadable":self.unreadable,"error":self.error,"primary":account_estimate(&self.samples,&self.points,quota,"primary"),"secondary":account_estimate(&self.samples,&self.points,quota,"secondary")})
+        json!({"samples":self.samples.len(),"points":self.points.len(),"unreadable":self.unreadable,"error":self.error,"primary":account_display_estimate(&self.samples,&self.points,quota,"primary"),"secondary":account_display_estimate(&self.samples,&self.points,quota,"secondary")})
     }
     pub fn update(&mut self, quota: &Value) -> Value {
         let account_changed =
@@ -1229,7 +1484,7 @@ impl Estimator {
             || self.cached["accountScope"] != quota["value"]["account_key"]
         {
             self.calibration_at = now;
-            self.cached = json!({"quotaAt":quota["at"],"accountScope":quota["value"]["account_key"],"primary":account_estimate(&self.samples,&self.points,quota,"primary"),"secondary":account_estimate(&self.samples,&self.points,quota,"secondary")});
+            self.cached = json!({"quotaAt":quota["at"],"accountScope":quota["value"]["account_key"],"primary":account_display_estimate(&self.samples,&self.points,quota,"primary"),"secondary":account_display_estimate(&self.samples,&self.points,quota,"secondary")});
             for key in ["primary", "secondary"] {
                 if self.cached[key].is_object() {
                     self.cached[key]["localComplete"] = json!(false);
@@ -1254,6 +1509,58 @@ impl Estimator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sol_basis_excludes_partial_intervals_and_replays_without_future_evidence() {
+        let point = |at, groups: BTreeMap<String, [f64; 3]>| Interval {
+            at,
+            start: at - 60,
+            reset: 600,
+            x: [100.; 3],
+            groups,
+            percent: 3.,
+            weight: 1.,
+        };
+        let standard = |model: &str| format!("{model}|standard|medium");
+        let rows = vec![
+            point(100, BTreeMap::from([(standard("gpt-6.1-sol"), [100.; 3])])),
+            point(
+                200,
+                BTreeMap::from([
+                    (standard("gpt-6.1-sol"), [100.; 3]),
+                    (standard("codex-auto-review"), [10.; 3]),
+                ]),
+            ),
+            point(300, BTreeMap::from([(standard("gpt-6-astra"), [100.; 3])])),
+        ];
+        let (normalized, observed) = sol_intervals(rows.clone(), SolBasis::Strict);
+        let (proxy, _) = sol_intervals(rows, SolBasis::Review54);
+        assert_eq!(proxy.len(), 3);
+        assert_eq!(proxy[1].x, [112.5, 125., 115.]);
+        let audited = sol_fit(&proxy, observed, 350, 9., SolBasis::Review54);
+        assert_eq!(audited["method"], "fixed-price-scalar");
+        assert_eq!(audited["reviewProxy"], "gpt-5.4");
+        assert_eq!(audited["proxyIntervals"], 1);
+        assert_eq!(audited["intervals"], 3);
+        assert_eq!(audited["reliability"], "learning");
+        assert_eq!(audited["weights"][0], audited["weights"][1]);
+        assert_eq!(audited["weights"][1], audited["weights"][2]);
+        assert_eq!(observed, 3);
+        assert_eq!(normalized.len(), 2);
+        assert_eq!(normalized[0].x, [100.; 3]);
+        assert_eq!(normalized[1].x, [500., 1000., 500.]);
+        let old = sol_fit(&normalized, 2, 250, 6., SolBasis::Strict);
+        let new = sol_fit(&normalized, 3, 350, 9., SolBasis::Strict);
+        assert_eq!(old["intervals"], 1);
+        assert_eq!(old["observedIntervals"], 2);
+        assert_eq!(old["reliability"], "learning");
+        assert_eq!(new["intervals"], 2);
+        assert_ne!(old["capacity"], new["capacity"]);
+        assert_eq!(
+            crate::pricing::sol_short_equivalent("gpt-6-luna", "standard", [100.; 3]),
+            Some([5., 10., 5.])
+        );
+    }
+
     #[test]
     fn raw_capacity_respects_mix_without_changing_reference_capacity() {
         let weights = [0.2, 0.02, 1.0];
