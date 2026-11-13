@@ -4,7 +4,9 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 
 [![Source checks](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/qufu-io/qufu-codex-dashboard)](https://github.com/qufu-io/qufu-codex-dashboard/releases/latest)
 
-**Open source · MIT · Version 1.0.7 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
+**Open source · MIT · Version 1.0.7 · Windows · Author: [alper@qufu.io](mailto:alper@qufu.io)**
+
+**Future releases are Windows-only. Linux packages remain available in historical releases through 1.0.7. / Yeni resmî paketler yalnız Windows için üretilecek; Linux paketleri 1.0.7 ve önceki yayınlarda kalır.**
 
 [Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.7](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.7) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 

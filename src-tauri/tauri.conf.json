@@ -36,9 +36,7 @@
       "icons/icon.ico"
     ],
     "targets": [
-      "nsis",
-      "deb",
-      "appimage"
+      "nsis"
     ],
     "publisher": "Qufu",
     "homepage": "https://qufu.io",

@@ -1,3 +1,7 @@
+# Current package policy — Windows only
+
+The owner ended official Linux packaging. Future signed-package jobs run only on Windows and build NSIS plus the optional portable executable. prepare_release.py accepts only the Windows setup/signature and optional portable, producing two Windows updater aliases. With the portable file, publish five assets: setup, setup.sig, portable, latest.json and SHA256SUMS.txt. Verify the one NSIS updater signature, signed version and tamper rejection; anonymous-download all emitted assets and verify hashes/manifest. Signature verification must expect the single Windows NSIS package; the historical three-platform count is no longer an acceptance criterion. Keep the existing public key/endpoint and immutable historical releases; Linux packages/manifests through 1.0.7 remain untouched. Source CI may continue Linux portability checks; these use hosted runners, not a local VM. No new release is authorized by this policy change. The older sections below record historical cross-platform release steps/results.
+
 # Release process
 
 ## Visibility and ownership
