@@ -2,6 +2,14 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
+## 1.0.7 — 2026-11-13
+
+- Add an explicitly assumed weekly Sol 6.1-equivalent view with fixed bundled API ratios and a robust scalar calibration.
+- Preserve strict known-price-only and original quota history views, official percentages and all original local records.
+- Label the GPT-5.4 Auto Review proxy and retain causal historical cutoffs and uncertainty.
+
+See [bilingual release notes](docs/CHANGES-1.0.7.md).
+
 ## 1.0.6 — 2026-11-08
 
 - Give quota amounts and learning status separate space; preserve English K/M/B token units at 300 px.

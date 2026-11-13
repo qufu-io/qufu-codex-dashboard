@@ -84,3 +84,8 @@ Immutable source/tag `3d73e794379613ef97528e09c6c0b816f585cc68` / `v1.0.5`; sour
 ## Authorized 1.0.6 — 2026-11-08
 
 The owner explicitly authorized merging PR #3 after CI passes, then publishing 1.0.6 with signed in-app updates. Preserve database/history and settings; retain the public signing key and consolidated update endpoint. Apply existing Windows/Ubuntu source CI, signed package builds, signature/version/tamper and anonymous download/manifest gates. No historical task backfill is claimed. Use an immutable v1.0.6 tag and new assets; never replace the 1.0.5 tag or packages.
+
+
+## Authorized 1.0.7 — 2026-11-13
+
+The owner explicitly authorized merging PR #5 after successful CI and publishing 1.0.7 with signed in-app updates. Preserve original quota/history data and settings, and keep the signing public key and consolidated endpoint. Require exact-source Windows/Ubuntu checks, signed builds, signature/signed-version/tamper verification and anonymous asset/latest-manifest verification. Publish a new immutable v1.0.7 tag and bilingual notes clearly identifying the API-priced weekly scenario and Auto Review proxy as assumptions. Never overwrite existing tags/releases.
