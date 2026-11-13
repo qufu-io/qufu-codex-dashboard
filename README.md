@@ -4,9 +4,9 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 
 [![Source checks](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/qufu-io/qufu-codex-dashboard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/qufu-io/qufu-codex-dashboard)](https://github.com/qufu-io/qufu-codex-dashboard/releases/latest)
 
-**Open source · MIT · Version 1.0.6 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
+**Open source · MIT · Version 1.0.7 · Windows & Linux · Author: [alper@qufu.io](mailto:alper@qufu.io)**
 
-[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.6](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.6) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
+[Source](https://github.com/qufu-io/qufu-codex-dashboard) · [Contribute](CONTRIBUTING.md) · [Download 1.0.7](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.7) · [Türkçe](#türkçe) · [English](#english) · [qufu.io](https://qufu.io)
 
 <p align="center">
   <img src="docs/images/dashboard-1.0.6.png" width="300" alt="Qufu Codex Dashboard with illustrative workspace and task measurements">
@@ -14,7 +14,7 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 
 *Illustrative data; no personal session information. / Örnek veriler; kişisel session bilgisi içermez.*
 
-[What’s new / Yenilikler](docs/CHANGES-1.0.6.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
+[What’s new / Yenilikler](docs/CHANGES-1.0.7.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
 
 | Measurement / Ölçüm | Source and meaning / Kaynak ve anlam |
 | --- | --- |
@@ -43,14 +43,14 @@ Qufu Codex Dashboard, Codex kullanımını küçük bir masaüstü penceresinden
 
 Uygulama **ücretsiz ve MIT lisanslı açık kaynaklıdır**. [Kaynak kodunu](https://github.com/qufu-io/qufu-codex-dashboard) inceleyebilir, değiştirebilir ve lisans koşullarıyla paylaşabilirsin. İndirme için GitHub hesabı gerekmez.
 
-1. [1.0.6 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.6).
+1. [1.0.7 sürümünü aç](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.7).
 2. **Assets** bölümünü genişlet.
 3. İşletim sistemine uygun paketi indir:
 
 | Platform | Paket | Kurulum |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Dosyayı çalıştır; kurulumdan sonra Başlat menüsünden aç. |
-| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.6.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
+| Windows x64, taşınabilir | `QufuCodexDashboard-1.0.7.exe` | Dosyayı çalıştır. WebView2 kurulu olmalı. |
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./indirilen-dosya.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x indirilen-dosya.AppImage` ardından dosyayı çalıştır. |
 
@@ -113,12 +113,12 @@ Qufu Codex Dashboard is a compact Tauri 2 desktop monitor for local Codex usage 
 
 The application is **free and open source under MIT**. [Browse, modify and contribute to the source](https://github.com/qufu-io/qufu-codex-dashboard). Downloads are public and require no GitHub account.
 
-Open [Release 1.0.6 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.6) and select your package:
+Open [Release 1.0.7 → Assets](https://github.com/qufu-io/qufu-codex-dashboard/releases/tag/v1.0.7) and select your package:
 
 | Platform | Package | Installation |
 | --- | --- | --- |
 | Windows x64 | `*_x64-setup.exe` | Run the installer, then open the app from the Start menu. |
-| Windows x64 portable | `QufuCodexDashboard-1.0.6.exe` | Run the executable; WebView2 must be installed. |
+| Windows x64 portable | `QufuCodexDashboard-1.0.7.exe` | Run the executable; WebView2 must be installed. |
 | Ubuntu / Debian amd64 | `*_amd64.deb` | `sudo apt install ./downloaded-file.deb` |
 | Linux x64 | `*_amd64.AppImage` | `chmod +x downloaded-file.AppImage`, then run it. |
 
