@@ -98,3 +98,8 @@ The owner explicitly authorized merging PR #5 after successful CI and publishing
 ## Authorized 1.0.8 — 2026-11-14
 
 The owner authorized the compact weekly quota label, three-decimal quota fractions, successful CI, merge and a new release. Publish an immutable v1.0.8 source tag and signed Windows NSIS/optional portable packages only. Keep historical Linux downloads through 1.0.7. Require exact-source source checks, signed Windows build, one NSIS signature/signed-version/tamper verification and anonymous asset/manifest verification. Preserve the updater public key, endpoint, settings and databases. This release changes presentation, not the underlying weekly scenario or official quota percentages.
+
+
+## Authorized 1.0.9 — 2026-11-14
+
+The owner explicitly authorized publication as 1.0.9 with signed in-app updates following merged PR #8. Publish a new immutable source tag and Windows NSIS/optional portable packages. Preserve historical Linux releases, the updater public key/endpoint, settings and quota history. Require exact-source Windows/Ubuntu source checks, signed Windows build, one NSIS signature/signed-version/tamper check and anonymous-download hashes/latest-manifest verification. Auto Follow migration enables the option once; verified-selection and later opt-out safeguards remain. Do not overwrite existing tags/assets.

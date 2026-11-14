@@ -107,7 +107,7 @@ Each observation interval must have a known tariff for every nonzero component; 
 The weekly card API-dollar estimate uses the **GPT-5.4 Auto Review scenario**, described in its tooltip and here. GPT-5.4 Standard short is used only as a proxy for the literal `codex-auto-review` Standard label, giving N/C/O ratios 1.25/2.5/1.5 vs. GPT-6.1 Sol. The local model label and samples are never changed. Other unpriced model/tier combinations are still excluded. This scenario refits one robust median scale through the latest real quota observations, with no independent model or token-type weights beyond the API basis. Chronological rollout tests use only earlier non-overlapping reset cohorts, and fewer than three eligible cohorts cannot receive verified/limited reliability status. OpenAI has not confirmed the underlying reviewer model, pricing or subscription accounting. The underlying strict replay and original quota history remain stored/available to the data layer. The simplified chart menu exposes only Raw Token and API $, plus official percentage for the weekly window.
 
 
-## API-dollar quota display and simplified charts (development)
+## API-dollar quota display and simplified charts (1.0.9)
 
 Quota percentages remain official backend measurements. Neither token nor dollar numerators are measured account-wide spending: they map the official percentage onto estimated capacity. No quota weights or historical measurements are changed by switching display units.
 
