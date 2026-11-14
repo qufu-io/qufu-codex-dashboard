@@ -389,11 +389,25 @@ fn estimate(
     };
     let mut local = None;
     let mut current_mix = [0.; 3];
+    let mut local_usd = Some(0.);
     for s in samples
         .iter()
         .filter(|s| s.at > reset - minutes * 60 && s.at <= at && belongs(s.at))
     {
         *local.get_or_insert(0.) += s.tokens();
+        let mut fields = s.group.split('|');
+        let model = fields.next().unwrap_or("");
+        let tier = fields.next().unwrap_or("");
+        let model = if model.eq_ignore_ascii_case("codex-auto-review")
+            && crate::pricing::normalize_tier(tier) == "standard"
+        {
+            "gpt-5.4"
+        } else {
+            model
+        };
+        local_usd = local_usd
+            .zip(crate::pricing::quota_short_usd(model, tier, s.x))
+            .map(|(a, b)| a + b);
         for (j, n) in s.x.iter().enumerate() {
             current_mix[j] += n;
         }
@@ -467,6 +481,10 @@ fn estimate(
         let total = current_mix.iter().sum::<f64>();
         value["rawMix"] = json!(current_mix.map(|v| v / total));
         value["rawCapacityBasis"] = json!("current-observed-window-mix");
+        if let Some(usd) = local_usd.filter(|_| total > 0.) {
+            value["apiUsdCapacity"] = json!(raw * usd / total);
+            value["apiUsdUsed"] = json!(raw * usd / total * percent / 100.);
+        }
     }
     value["reliability"] = json!(if model.regression && count >= 8 {
         "validated"
@@ -603,6 +621,19 @@ fn sol_fit(rows: &[Interval], observed: usize, at: i64, percent: f64, basis: Sol
     if capacity.is_finite() && (1. ..=1e13).contains(&capacity) {
         result["capacity"] = json!(capacity);
         result["used"] = json!(capacity * percent / 100.);
+        let mix = rows.iter().fold([0.; 3], |mut sum, r| {
+            for j in 0..3 {
+                sum[j] += r.x[j];
+            }
+            sum
+        });
+        if let Some(raw) = projected_raw_capacity(&model.common, &mix) {
+            if let Some(usd) = crate::pricing::quota_short_usd("gpt-6.1-sol", "standard", mix) {
+                let usd_capacity = raw * usd / mix.iter().sum::<f64>();
+                result["apiUsdCapacity"] = json!(usd_capacity);
+                result["apiUsdUsed"] = json!(usd_capacity * percent / 100.);
+            }
+        }
         result["reliability"] = json!(if count < 8
             || match basis {
                 SolBasis::Strict => !model.regression,
@@ -1544,11 +1575,24 @@ mod tests {
         assert_eq!(audited["reliability"], "learning");
         assert_eq!(audited["weights"][0], audited["weights"][1]);
         assert_eq!(audited["weights"][1], audited["weights"][2]);
+        let mix = proxy.iter().fold([0.; 3], |mut sum, r| {
+            for j in 0..3 {
+                sum[j] += r.x[j];
+            }
+            sum
+        });
+        let expected_usd = audited["capacity"].as_f64().unwrap()
+            * crate::pricing::quota_short_usd("gpt-6.1-sol", "standard", mix).unwrap()
+            / mix.iter().sum::<f64>();
+        assert!((audited["apiUsdCapacity"].as_f64().unwrap() - expected_usd).abs() < 1e-10);
+        assert!((audited["apiUsdUsed"].as_f64().unwrap() - expected_usd * 0.09).abs() < 1e-10);
         assert_eq!(observed, 3);
         assert_eq!(normalized.len(), 2);
         assert_eq!(normalized[0].x, [100.; 3]);
         assert_eq!(normalized[1].x, [500., 1000., 500.]);
         let old = sol_fit(&normalized, 2, 250, 6., SolBasis::Strict);
+        let old_without_future = sol_fit(&normalized[..1], 2, 250, 6., SolBasis::Strict);
+        assert_eq!(old["apiUsdCapacity"], old_without_future["apiUsdCapacity"]);
         let new = sol_fit(&normalized, 3, 350, 9., SolBasis::Strict);
         assert_eq!(old["intervals"], 1);
         assert_eq!(old["observedIntervals"], 2);
@@ -1937,6 +1981,38 @@ mod tests {
                 .abs()
                     < 1e-5
             );
+        }
+    }
+    #[test]
+    fn api_projection_uses_the_observed_mix_and_rejects_unknown_prices() {
+        for minutes in [300, 10080] {
+            let (mut samples, points, window, at) = fixture(minutes, 1.);
+            for sample in &mut samples {
+                sample.group = "gpt-6.1-sol|standard|high".into();
+            }
+            let value = estimate(&samples, &points, &window, Some("pro"), at);
+            let reset = window["resets_at"].as_i64().unwrap();
+            let local: Vec<_> = samples
+                .iter()
+                .filter(|s| s.at > reset - minutes * 60 && s.at <= at)
+                .collect();
+            let tokens = local.iter().map(|s| s.tokens()).sum::<f64>();
+            let usd = local
+                .iter()
+                .map(|s| (s.x[0] * 2. + s.x[1] * 0.1 + s.x[2] * 10.) / 1_000_000.)
+                .sum::<f64>();
+            let expected = value["rawCapacity"].as_f64().unwrap() * usd / tokens;
+            assert!((value["apiUsdCapacity"].as_f64().unwrap() - expected).abs() < 1e-7);
+            assert!(
+                (value["apiUsdUsed"].as_f64().unwrap()
+                    - expected * window["used_percent"].as_f64().unwrap() / 100.)
+                    .abs()
+                    < 1e-7
+            );
+            samples.last_mut().unwrap().group = "unpriced-model|standard|high".into();
+            let unknown = estimate(&samples, &points, &window, Some("pro"), at);
+            assert!(unknown["apiUsdCapacity"].is_null());
+            assert!(unknown["rawCapacity"].as_f64().is_some());
         }
     }
     #[test]
