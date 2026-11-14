@@ -97,7 +97,7 @@ body footer>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:el
 
 #releaseFooter{padding:0 0 8px}#releaseFooter .author{margin-top:8px}#releaseFooter .updates{margin-top:8px}
 
-.context-source{display:block;max-width:210px;font-size:9px;color:var(--muted)}
+
 
 .limit-top{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:6px;row-gap:3px}
 .limit-top>span:first-child{grid-column:1;grid-row:1;min-width:0}
@@ -106,5 +106,7 @@ body footer>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:el
 .quota-amount{grid-column:1/-1;grid-row:2;display:flex;align-items:baseline;justify-content:space-between;gap:6px;min-width:0;font-size:9px}
 .quota-value{white-space:nowrap;font-variant-numeric:tabular-nums;flex-shrink:0}
 .quota-confidence{font-size:9px;color:var(--muted);white-space:nowrap}
-.task-warning{grid-column:1/-1;display:flex;align-items:flex-start;gap:6px;font-size:10px;line-height:1.5;color:var(--usage-warning)}
-.task-warning svg{width:14px;height:14px;margin-top:1px}
+ .quota-switch{font-size:9px;color:var(--accent);padding:2px 4px;margin-left:auto;white-space:nowrap}
+.detail-facts>div{flex-wrap:wrap;gap:3px 8px}.detail-facts dd{overflow-wrap:anywhere;min-width:0}
+#panel table{table-layout:fixed}#panel th,#panel td{padding:6px 3px;white-space:normal;overflow-wrap:anywhere;font-size:9px}
+#panel th:first-child,#panel td:first-child{width:24%}.agents{flex-wrap:wrap;gap:5px}

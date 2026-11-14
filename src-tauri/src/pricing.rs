@@ -116,10 +116,33 @@ pub fn normalize_tier(tier: &str) -> String {
 /// Fixed bundled API short-context ratios for the derived quota projection.
 /// Context length and cache-write detail aren't available in quota samples.
 /// The billed API pricing engine remains independent of this approximation.
-pub fn sol_short_equivalent(model: &str, tier: &str, raw: [f64; 3]) -> Option<[f64; 3]> {
+fn quota_catalog() -> &'static Catalog {
     static BASIS_CATALOG: OnceLock<Catalog> = OnceLock::new();
-    let book = BASIS_CATALOG
-        .get_or_init(|| serde_json::from_str(include_str!("../prices.json")).unwrap_or_default());
+    BASIS_CATALOG
+        .get_or_init(|| serde_json::from_str(include_str!("../prices.json")).unwrap_or_default())
+}
+pub fn quota_short_usd(model: &str, tier: &str, raw: [f64; 3]) -> Option<f64> {
+    let rate =
+        quota_catalog()
+            .rates
+            .get(&key(&normalize_model(model), &normalize_tier(tier), false))?;
+    let mut usd = 0.;
+    for (tokens, price) in raw
+        .into_iter()
+        .zip([Some(rate.input), rate.cache, Some(rate.output)])
+    {
+        if !tokens.is_finite() || tokens < 0. {
+            return None;
+        }
+        if tokens > 0. {
+            let price = price.filter(|p| p.is_finite() && *p >= 0.)?;
+            usd += tokens * price / 1_000_000.;
+        }
+    }
+    usd.is_finite().then_some(usd)
+}
+pub fn sol_short_equivalent(model: &str, tier: &str, raw: [f64; 3]) -> Option<[f64; 3]> {
+    let book = quota_catalog();
     let sol = book.rates.get("gpt-6.1-sol|standard|short")?;
     let ratio = book
         .rates

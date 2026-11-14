@@ -16,6 +16,8 @@ Understand your Codex usage in one compact desktop window. Track local sessions,
 
 *Illustrative data; no personal session information. / Örnek veriler; kişisel session bilgisi içermez.*
 
+*Development changes below target the next release; the latest installer remains 1.0.8. / Aşağıdaki geliştirmeler sonraki sürüm içindir; güncel kurulum hâlâ 1.0.8’dir.*
+
 [What’s new / Yenilikler](docs/CHANGES-1.0.8.md) · [Changelog](CHANGELOG.md) · [Measurement methodology / Ölçüm yöntemi](docs/MEASUREMENTS.md) · [Privacy / Gizlilik](docs/PRIVACY.md)
 
 | Measurement / Ölçüm | Source and meaning / Kaynak ve anlam |
@@ -39,7 +41,7 @@ Qufu Codex Dashboard, Codex kullanımını küçük bir masaüstü penceresinden
 - 5 saatlik ve haftalık hesap limitleri, reset sayaçları ve veri yeterliyse açıkça işaretlenmiş tahmini token eşdeğerleri.
 - Detaylar panelinde subagent tüketimi, model dökümü ve hesap abonelik türü.
 - Her zaman üstte, sistem tepsisi, hatırlanan pencere ayarları, şeffaflık, koyu/açık tema ve Türkçe/İngilizce dil seçimi.
-- Varsayılan kapalı Auto Follow Beta; seçili Desktop session doğrulanamıyorsa manuel seçimi korur.
+- Varsayılan açık Auto Follow; seçili Desktop session doğrulanamıyorsa manuel seçimi korur.
 
 ### İndirme ve kurulum
 
@@ -67,7 +69,7 @@ Sürüm, güncelleme kontrolü ve Qufu/yazar bilgisi Settings kapalıyken de alt
 
 Alt satır son limit güncelleme saatini gösterir; eski veride ne kadar süre geçtiği belirtilir.
 
-Varsayılanlar: İngilizce, %33 şeffaflık, 300 piksel genişliğinde kompakt görünüm. Yükseklik içeriğe uyar; pencere ve sonraki tercihler hatırlanır. Context %80'i, hesap limitleri %90'ı aşınca ilgili bar ve yüzde uyarı rengine döner.
+Varsayılanlar: İngilizce, %33 şeffaflık, 300 piksel genişliğinde kompakt görünüm. Settings ve Details açıldığında da genişlik 300 piksel kalır. Haftalık gösterim varsayılan API $ olup Token görünümüne geçilebilir. Yükseklik içeriğe uyar; pencere ve sonraki tercihler hatırlanır. Context %80'i, hesap limitleri %90'ı aşınca ilgili bar ve yüzde uyarı rengine döner.
 
 ### Veriler ve hesaplama
 
@@ -107,7 +109,7 @@ Qufu Codex Dashboard is a compact Tauri 2 desktop monitor for local Codex usage 
 - Five-hour and weekly account limits, reset timers and clearly marked approximate token equivalents when calibration is available.
 - Model breakdown, subscription type and separate subagent consumption in Details.
 - Tray integration, always-on-top, remembered window settings, transparency, dark/light themes and English/Turkish localization.
-- Auto Follow Beta is off by default and preserves manual selection when the selected Desktop session cannot be verified.
+- Auto Follow is enabled by default and preserves manual selection when the selected Desktop session cannot be verified.
 
 ### Download and install
 

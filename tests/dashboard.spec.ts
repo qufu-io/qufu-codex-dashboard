@@ -46,7 +46,7 @@ test('manual selection, metrics, details and settings',async({page})=>{
  await page.screenshot({path:'artifacts/ui-details-test.png'});
  await page.getByRole('button',{name:'Settings',exact:true}).click();
  await fitPanel(page);
- await expect(page.locator('#autoFollow')).not.toBeChecked();
+ await expect(page.locator('#autoFollow')).toBeChecked();await expect(page.locator('.settings-toggles')).not.toContainText('Beta');
  await page.locator('#autoFollow').check();
  await page.getByRole('button',{name:'Refresh',exact:true}).click();
  await expect(page.locator('#sessionTitle')).toHaveText('Test Workspace - Test ana session');
@@ -130,15 +130,15 @@ test('quiet logo, no startup control, English and Turkish persist',async({page})
 async function fitWindow(page:import('@playwright/test').Page){
  await expect.poll(()=>page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='window_preferences'&&c.args.height).length)).toBeGreaterThan(0);
  for(let pass=0;pass<2;pass++){
-  await expect.poll(()=>page.evaluate(()=>{const size=(window as any).__calls.filter((c:any)=>c.cmd==='window_preferences'&&c.args.height).at(-1).args;return size.height===Math.ceil(document.querySelector('#app')!.getBoundingClientRect().height);})).toBe(true);
-  const size=await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='window_preferences'&&c.args.height).at(-1).args);
-  await page.setViewportSize({width:size.width??371,height:size.height});
+  await expect.poll(()=>page.evaluate(()=>{const size=(window as any).__calls.filter((c:any)=>c.cmd==='window_preferences'&&c.args.height).at(-1).args;const wanted=Math.ceil(document.querySelector('#app')!.getBoundingClientRect().height);return size.height===wanted||window.innerHeight===wanted&&window.innerWidth===300;})).toBe(true);
+  const size=await page.evaluate(()=>{const desired=Math.ceil(document.querySelector('#app')!.getBoundingClientRect().height);return window.innerHeight===desired&&window.innerWidth===300?{width:300,height:desired}:(window as any).__calls.filter((c:any)=>c.cmd==='window_preferences'&&c.args.height).at(-1).args;});
+  await page.setViewportSize({width:size.width??300,height:size.height});
  }
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollHeight<=window.innerHeight)).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 }
 async function fitPanel(page:import('@playwright/test').Page){
- await expect.poll(()=>page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='window_preferences'&&c.args.width===371).length)).toBeGreaterThan(0);
+ await expect.poll(()=>page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='window_preferences'&&c.args.width===300).length)).toBeGreaterThan(0);
  await fitWindow(page);
  expect(await page.locator('#panel').evaluate(e=>getComputedStyle(e).overflowY)).toBe('visible');
 }
@@ -242,7 +242,7 @@ test('quota amounts are labeled estimates and missing calibration stays unknown'
  await expect(page.locator('#five .quota-amount')).toHaveText('≈ 42.000M / 100.000M N equivalent');
  await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/not an official token quota/);
  await expect(page.locator('#five .quota-amount')).toHaveAttribute('title',/Typical error: %20.0/);
- await expect(page.locator('#week .quota-amount')).toHaveText('(—/— Token)');
+ await expect(page.locator('#week .quota-value')).toHaveText('— $ / — $');
  await expect(page.locator('#week .limit-top strong')).toHaveText('%68');
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.quota.value.primary.token_estimate=null;return v;};});
  await page.locator('#refresh').click();await fitWindow(page);
@@ -348,18 +348,18 @@ for(const language of ['en','tr']) for(const metric of ['turns','context','five'
   (window as any).__QUFU_HISTORY__={metric,selected:'test-main',language,theme:language==='en'?'dark':'light'};
   const usage={input:1000,cache:800,output:200,reasoning:50,total:1200};
   const turns=[{id:'one',status:'completed',startedAt:100,completedAt:120,durationMs:20000,usage,used:400,rawTotal:1200,usd:0.003,model:'test',responses:[{model:'gpt-6.1-sol',tier:'standard'}],context:{used:1000,capacity:128000,percent:0}},{id:'missing',status:'completed',startedAt:200,completedAt:220,usage:null,used:null,rawTotal:null,usd:null,context:null},{id:'three',status:'completed',startedAt:300,completedAt:320,usage,used:500,rawTotal:1300,usd:0.004,compacted:true,model:'test',context:{used:70000,capacity:128000,percent:50}},{id:'active',status:'in_progress',usage}];
-  const fits=[{at:100,capacity:2000000,identifiable:true,reliability:'validated',weights:[0.00005,0.00001,0.0002],weeklyRatio:0.15,weeklyRatioLearned:false,intervals:30,medianErrorPercent:5,p90ErrorPercent:15,plan:'pro',limitId:'codex'},{at:200,capacity:3000000,identifiable:false,reliability:'learning'},{at:300,capacity:2500000,identifiable:true,reliability:'validated',plan:'pro',limitId:'codex'}];
+  const fits=[{at:100,rawCapacity:2000000,apiUsdCapacity:12,capacity:2000000,identifiable:true,reliability:'validated',weights:[0.00005,0.00001,0.0002],weeklyRatio:0.15,weeklyRatioLearned:false,intervals:30,medianErrorPercent:5,p90ErrorPercent:15,plan:'pro',limitId:'codex'},{at:200,capacity:3000000,identifiable:false,reliability:'learning'},{at:300,rawCapacity:2500000,apiUsdCapacity:15,capacity:2500000,identifiable:true,reliability:'validated',plan:'pro',limitId:'codex'}];
   (window as any).__historyCalls=[];
   (window as any).__TAURI_INTERNALS__={invoke:async(cmd:string,args:any)=>{(window as any).__historyCalls.push({cmd,args});if(cmd==='history')return metric==='turns'||metric==='context'?turns:{fits,points:[{at:100,percent:35,reset:900,plan:'pro',limitId:'codex'},{at:300,percent:42,reset:900,plan:'pro',limitId:'codex'}]};return null;}};
  },{language,metric});
  await page.setViewportSize({width:480,height:300});await page.goto('http://127.0.0.1:5173/?history=1');
- if(metric==='five'||metric==='week')await page.locator('#historyView').selectOption('capacity');
+ if(metric==='five'||metric==='week')await page.locator('#historyView').selectOption('raw');
  await expect(page.locator('.history-mark')).toHaveCount(2);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth||document.documentElement.scrollHeight>innerHeight)).toBe(false);
  await page.locator('.history-mark').first().focus();await expect(page.locator('#historyDetail')).not.toHaveText('');
- if(metric==='turns'){await expect(page.locator('#historyView')).toHaveValue('used');await expect(page.locator('#historyDetail')).toContainText('Used 400');await page.locator('#historyView').selectOption('usd');await expect(page.locator('#historyDetail')).not.toContainText('NaN');}
+ if(metric==='turns'){await expect(page.locator('#historyView')).toHaveValue('raw');await expect(page.locator('#historyDetail')).toContainText('Used 400');await page.locator('#historyView').selectOption('usd');await expect(page.locator('#historyDetail')).not.toContainText('NaN');}
  if(metric==='context')expect(await page.locator('.history-line').count()).toBe(0);
- if(metric==='five'||metric==='week'){expect(await page.locator('.history-line').count()).toBe(0);await page.locator('#historyView').selectOption('percent');await expect(page.locator('.history-mark').first().locator('title')).toContainText('%35');}
+ if(metric==='five'||metric==='week')expect(await page.locator('.history-line').count()).toBe(0);if(metric==='week'){await page.locator('#historyView').selectOption('percent');await expect(page.locator('.history-mark').first().locator('title')).toContainText('%35');}
  await page.setViewportSize({width:320,height:240});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth||document.documentElement.scrollHeight>innerHeight)).toBe(false);
  expect(await page.evaluate(()=>(window as any).__historyCalls.some((c:any)=>['save_settings','window_preferences','snapshot'].includes(c.cmd)))).toBe(false);
  await page.screenshot({path:`artifacts/history-${metric}-${language}.png`});
@@ -408,7 +408,7 @@ test('startup fits the window without opening settings and retires compact prefe
   await page.locator('#settingsToggle').click();
   await expect(page.locator('#compact')).toHaveCount(0);
   await expect(page.locator('#transparency')).toHaveValue('45');
-  await expect.poll(()=>page.viewportSize()?.width).toBe(371);
+  await expect.poll(()=>page.viewportSize()?.width).toBe(300);
   await page.locator('#settingsToggle').click();
   await expect.poll(()=>page.viewportSize()).toEqual(initial);
   expect(await page.evaluate(()=>(window as any).__saved.compact)).toBeUndefined();
@@ -494,9 +494,9 @@ for(const plan of ['pro','prolite','promax']) test(`Pro family ${plan} hides fiv
  await page.locator('#sessionTitle').click();await page.locator('[data-id="test-main"]').click();
  await expect(page.locator('#contextUsage')).toContainText('475K');
  await page.locator('#detailsToggle').click();await fitPanel(page);
- await expect(page.locator('.detail-facts')).toContainText('475,000');await expect(page.locator('.context-source')).toContainText('not inferred from the subscription');
+ await expect(page.locator('.detail-facts')).toContainText('475,000');await expect(page.locator('.context-source')).toHaveCount(0);
  await page.locator('#settingsToggle').click();await page.locator('#language').selectOption('tr');await fitPanel(page);
- await page.locator('#detailsToggle').click();await expect(page.locator('.context-source')).toContainText('abonelikten tahmin edilmez');
+ await page.locator('#detailsToggle').click();await expect(page.locator('.context-source')).toHaveCount(0);
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.quota.value.plan_type='plus';return v;};});
  await page.locator('#refresh').click();await expect(page.locator('#five')).toBeVisible();
 });
@@ -518,8 +518,8 @@ for(const language of ['en','tr']) test(`raw quota history ${language} preserves
   (window as any).__TAURI_INTERNALS__={invoke:async()=>({fits,points:[]})};
  },language);
  await page.setViewportSize({width:480,height:300});await page.goto('http://127.0.0.1:5173/?history=1');
- await expect(page.locator('#historyView')).toHaveValue('sol');await page.locator('#historyView').selectOption('raw');await expect(page.locator('.history-mark')).toHaveCount(3);await expect(page.locator('.history-line')).toHaveCount(0);
- await page.locator('.history-mark').first().focus();await expect(page.locator('#historyDetail')).toContainText(language==='en'?'N/C/O mix':'N/C/O dağılımı');
+ await expect(page.locator('#historyView')).toHaveValue('usd');await page.locator('#historyView').selectOption('raw');await expect(page.locator('.history-mark')).toHaveCount(3);await expect(page.locator('.history-line')).toHaveCount(0);
+ await page.locator('.history-mark').first().focus();await expect(page.locator('#historyDetail')).toContainText('300');
  await expect(page.locator('.history-notice')).toContainText(language==='en'?'not a fixed official allowance':'resmi sabit kota değildir');
  await page.screenshot({path:`artifacts/pr1-raw-history-${language}.png`});
 });
@@ -528,6 +528,7 @@ for(const language of ['en','tr']) test(`weekly billion capacity ${language} rem
  await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'){v.quota.value.secondary.used_percent=5;v.quota.value.secondary.token_estimate={used:164e6,capacity:3280e6,rawUsed:164e6,rawCapacity:3280e6,reliability:'learning',approximate:true,localTokens:120e6,intervals:1,resets:1};}return v;};});
  if(language==='tr'){await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#language').selectOption('tr');await page.locator('#theme').selectOption('light');await fitPanel(page);await page.locator('#settingsToggle').click();}
  await page.locator('#refresh').click();await fitWindow(page);
+ await page.locator('#weeklyDisplay').click();
  await expect(page.locator('#week .quota-value')).toHaveText('≈ 164.000M / 3.280B Token');
  await expect(page.locator('#week .quota-confidence')).toHaveText(language==='en'?'Learning':'Öğreniliyor');
  await expect(page.locator('#week .quota-amount')).toHaveAttribute('title',language==='en'?/B = billion/:/B = milyar/);
@@ -543,44 +544,54 @@ for(const language of ['en','tr']) test(`weekly billion capacity ${language} rem
  await page.screenshot({path:`artifacts/weekly-billion-${language}.png`});
 });
 
-for(const language of ['en','tr']) test(`task usage warning ${language} distinguishes a cache-heavy volume from a usage spike`,async({page})=>{
- await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__taskFixture={raw:10000000,used:40000,count:0,partial:false};(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'&&v.detail){const f=(window as any).__taskFixture;v.detail.turn={id:'current',status:'in_progress',rawTotal:f.raw,used:f.used,usagePartial:f.partial};v.detail.turnBaseline={count:f.count,rawMedian:1000000,usedMedian:50000};v.detail.lastUsage=f.raw==null?null:{input:f.raw-10000,cache:f.raw-f.used,output:10000,reasoning:5000,total:f.raw,write:0};v.detail.usage=v.detail.lastUsage;v.detail.rawTotal=f.raw;v.detail.used=f.used;}return v;};});
- await page.locator('#sessionTitle').click();await page.locator('[data-id="test-main"]').click();
- if(language==='tr'){await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#language').selectOption('tr');await page.locator('#theme').selectOption('light');await fitPanel(page);await page.locator('#settingsToggle').click();}
- await expect(page.locator('.task-warning')).toContainText(language==='en'?'High task volume':'Yüksek görev hacmi');await expect(page.locator('.task-warning')).toContainText('10M Raw Total');
- await page.evaluate(()=>{(window as any).__taskFixture={raw:600000,used:200000,count:10,partial:false};});await page.locator('#refresh').click();
- await expect(page.locator('.task-warning')).toContainText(language==='en'?'Task usage spike':'Görev tüketimi arttı');await expect(page.locator('.task-warning')).toContainText('200K CLI Used');await expect(page.locator('.task-warning')).toContainText('4.0×');
- await fitWindow(page);expect(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight||document.documentElement.scrollWidth>innerWidth)).toBe(false);
- const widths=await page.locator('.task-warning').evaluate(e=>({warning:e.getBoundingClientRect().width,parent:e.parentElement!.getBoundingClientRect().width}));expect(widths.warning).toBe(widths.parent);
- await page.screenshot({path:`artifacts/task-warning-${language}.png`});
- await page.evaluate(()=>{(window as any).__taskFixture={raw:null,used:null,count:10,partial:false};});await page.locator('#refresh').click();await expect(page.locator('.task-warning')).toHaveCount(0);
+test('large task consumption no longer renders a spending warning',async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot'&&v.detail){v.detail.turn={id:'big',status:'completed',rawTotal:100000000,used:50000000};v.detail.turnBaseline={count:20,rawMedian:1000,usedMedian:500};}return v;};});
+ await page.locator('#sessionTitle').click();await page.locator('[data-id="test-main"]').click();await expect(page.locator('.task-warning')).toHaveCount(0);await expect(page.locator('.last-request')).toContainText('100M');
 });
 
 test('task chart explains CLI Used and Raw Total without changing measurements',async({page})=>{
  await page.addInitScript(()=>{(window as any).__QUFU_HISTORY__={metric:'turns',selected:'test',language:'en',theme:'dark'};const usage={input:1000,cache:800,output:200,reasoning:50,total:1200};(window as any).__TAURI_INTERNALS__={invoke:async()=>[{id:'turn',status:'completed',startedAt:100,completedAt:120,usage,used:400,rawTotal:1200}]};});
  await page.setViewportSize({width:480,height:300});await page.goto('http://127.0.0.1:5173/?history=1');
- await expect(page.locator('#historyView')).toHaveValue('used');await expect(page.locator('.history-notice')).toContainText('Input − Cache + Output');await expect(page.locator('.history-notice')).toContainText('not a quota measure');
+ await expect(page.locator('#historyView')).toHaveValue('raw');await expect(page.locator('#historyView option')).toHaveText(['Raw Token','API $']);await expect(page.locator('.history-notice')).toContainText('Input + Output');
  await page.locator('.history-mark').focus();await expect(page.locator('#historyDetail')).toContainText('Used 400 · Raw 1,200');
  await page.locator('#historyView').selectOption('raw');await expect(page.locator('.history-notice')).toContainText('Cache and Reasoning are not added again');
  await page.screenshot({path:'artifacts/history-raw-explanation.png'});
 });
 
-test('weekly history keeps original data alongside provisional Sol replay',async({page})=>{
+test('weekly history offers only raw tokens, API dollars and official percent',async({page})=>{
  await page.addInitScript(()=>{
   (window as any).__QUFU_HISTORY__={metric:'week',selected:null,language:'en',theme:'dark'};
   const points=[{at:100,percent:35,reset:900,plan:'pro',limitId:'codex'}];
-  const fits=[{...points[0],reliability:'validated',identifiable:true,capacity:5e8,rawCapacity:7e8}];
-  const solFits=[{...points[0],reliability:'learning',capacity:2.4e9,intervals:4,observedIntervals:23}];
-  (window as any).__TAURI_INTERNALS__={invoke:async(cmd:string)=>cmd==='history'?{fits,points,solFits,strictSolFits:[]}:null};
+  const fits=[{...points[0],reliability:'validated',identifiable:true,rawCapacity:7e8,capacity:5e8}];
+  const solFits=[{...points[0],reliability:'learning',apiUsdCapacity:1200.25,intervals:4,observedIntervals:23}];
+  (window as any).__TAURI_INTERNALS__={invoke:async()=>({fits,points,solFits})};
  });
  await page.goto('http://127.0.0.1:5173/?history=1');
- await expect(page.locator('#historyView')).toHaveValue('sol');
- await expect(page.locator('.history-mark')).toHaveCount(1);
- await page.locator('.history-mark').first().focus();
- await expect(page.locator('#historyDetail')).toContainText('4 / 23');
- await expect(page.locator('.history-notice')).toContainText('Assumes GPT-5.4 pricing for Auto Review');
- await page.locator('#historyView').selectOption('sol-strict');
- await expect(page.locator('.history-mark')).toHaveCount(0);
- await page.locator('#historyView').selectOption('raw');
- await expect(page.locator('.history-mark')).toHaveCount(1);
+ await expect(page.locator('#historyView option')).toHaveText(['Raw Token','API $','Official usage']);
+ await expect(page.locator('#historyView')).toHaveValue('usd');await expect(page.locator('.history-mark')).toHaveCount(1);
+ await page.locator('.history-mark').focus();await expect(page.locator('#historyDetail')).toContainText('1200.25 $');
+ await page.locator('#historyView').selectOption('raw');await expect(page.locator('.history-mark')).toHaveCount(1);
+ await page.locator('#historyView').selectOption('percent');await page.locator('.history-mark').focus();await expect(page.locator('#historyDetail')).toContainText('%35');
+});
+
+for(const language of ['en','tr']) test(`weekly API dollars default and token switch persist ${language}`,async({page})=>{
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.quota.value.secondary.token_estimate={used:1e9,capacity:3e9,approximate:true,intervals:10,resets:3,solEquivalent:{used:1150123456,capacity:3500123456,apiUsdUsed:500,apiUsdCapacity:1200.25,intervals:10,observedIntervals:12,reliability:'limited'}};return v;};});
+ if(language==='tr'){await page.locator('#settingsToggle').click();await fitPanel(page);await page.locator('#language').selectOption('tr');await page.locator('#settingsToggle').click();}
+ await page.locator('#refresh').click();await expect(page.locator('#week .quota-value')).toHaveText('≈ 500.00$ / 1200.25$');await fitWindow(page);await page.screenshot({path:`artifacts/weekly-api-${language}.png`});
+ await page.locator('#weeklyDisplay').focus();await page.keyboard.press('Enter');
+ await expect(page.locator('#week .quota-value')).toHaveText('≈ 1.150B / 3.500B Token');
+ expect(await page.evaluate(()=>(window as any).__calls.filter((c:any)=>c.cmd==='open_history_window').length)).toBe(0);
+ expect(await page.evaluate(()=>(window as any).__saved.weeklyDisplay)).toBe('tokens');
+ await page.evaluate(()=>localStorage.setItem('test-startup-settings',JSON.stringify((window as any).__saved)));await page.reload();await expect(page.locator('#weeklyDisplay')).toHaveText('API $');
+ await page.locator('#weeklyDisplay').click();await expect(page.locator('#week .quota-value')).toHaveText('— $ / — $');
+ await fitWindow(page);await page.screenshot({path:`artifacts/weekly-display-${language}.png`});
+});
+
+test('Auto Follow migration enables once, respects opt-out and follows only verified listed sessions',async({page})=>{
+ await page.locator('#settingsToggle').click();await fitPanel(page);await expect(page.locator('#autoFollow')).toBeChecked();
+ await page.locator('#autoFollow').uncheck();await page.evaluate(()=>localStorage.setItem('test-startup-settings',JSON.stringify((window as any).__saved)));await page.reload();
+ await page.locator('#settingsToggle').click();await fitPanel(page);await expect(page.locator('#autoFollow')).not.toBeChecked();await page.locator('#autoFollow').check();
+ await page.evaluate(()=>{const base=(window as any).__TAURI_INTERNALS__.invoke;(window as any).__followId='not-in-list';(window as any).__TAURI_INTERNALS__.invoke=async(cmd:string,args:any)=>{const v=await base(cmd,args);if(cmd==='snapshot')v.follow.id=(window as any).__followId;return v;};});
+ await page.locator('#refresh').click();expect(await page.evaluate(()=>(window as any).__saved.selected)).toBeNull();
+ await page.evaluate(()=>(window as any).__followId='test-other');await page.locator('#refresh').click();expect(await page.evaluate(()=>(window as any).__saved.selected)).toBe('test-other');
 });

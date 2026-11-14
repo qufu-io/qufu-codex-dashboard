@@ -2,6 +2,14 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
+## Unreleased
+
+- Default weekly quota display to API-equivalent dollars with a persistent Token/API $ switch and two decimal places.
+- Derive quota-dollar projections from the observed N/C/O mix; retain unknowns, scenario caveats and official percentages.
+- Simplify task/quota chart selectors to Raw Token and API $, plus weekly official percentage; remove task-spending warnings.
+- Enable Auto Follow on migration, remove its Beta label, preserve verified-selection safeguards and later opt-out.
+- Keep Settings and Details at the main 300px width and remove the redundant context-source caption.
+
 ## 1.0.8 — 2026-11-14
 
 - Shorten the weekly quota card to its approximate numeric fraction; keep scenario assumptions in the tooltip and history.
