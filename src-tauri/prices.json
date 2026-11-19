@@ -2,6 +2,146 @@
   "updated_at": 1792994464,
   "source": "https://developers.openai.com/api/docs/pricing.md",
   "rates": {
+    "gpt-6.2-astra|batch|long": {
+      "input": 8.0,
+      "cache": 0.4,
+      "write": 10.0,
+      "output": 30.0,
+      "write_long": 20.0
+    },
+    "gpt-6.2-astra|batch|short": {
+      "input": 4.0,
+      "cache": 0.2,
+      "write": 5.0,
+      "output": 20.0,
+      "write_long": 10.0
+    },
+    "gpt-6.2-astra|fast|long": {
+      "input": 32.0,
+      "cache": 1.6,
+      "write": 40.0,
+      "output": 120.0,
+      "write_long": 80.0
+    },
+    "gpt-6.2-astra|fast|short": {
+      "input": 16.0,
+      "cache": 0.8,
+      "write": 20.0,
+      "output": 80.0,
+      "write_long": 40.0
+    },
+    "gpt-6.2-astra|standard|long": {
+      "input": 16.0,
+      "cache": 0.8,
+      "write": 20.0,
+      "output": 60.0,
+      "write_long": 40.0
+    },
+    "gpt-6.2-astra|standard|short": {
+      "input": 8.0,
+      "cache": 0.4,
+      "write": 10.0,
+      "output": 40.0,
+      "write_long": 20.0
+    },
+    "gpt-6.2-astra|ultrafast-list|long": {
+      "input": 96.0,
+      "cache": 4.8,
+      "write": 120.0,
+      "output": 360.0,
+      "write_long": 240.0
+    },
+    "gpt-6.2-astra|ultrafast-list|short": {
+      "input": 48.0,
+      "cache": 2.4,
+      "write": 60.0,
+      "output": 240.0,
+      "write_long": 120.0
+    },
+    "gpt-6.2-astra|ultrafast-promotion|long": {
+      "input": 48.0,
+      "cache": 2.4,
+      "write": 60.0,
+      "output": 180.0,
+      "write_long": 120.0
+    },
+    "gpt-6.2-astra|ultrafast-promotion|short": {
+      "input": 24.0,
+      "cache": 1.2,
+      "write": 30.0,
+      "output": 120.0,
+      "write_long": 60.0
+    },
+    "gpt-6.2-sol|batch|long": {
+      "input": 2.0,
+      "cache": 0.1,
+      "write": 2.5,
+      "output": 7.5,
+      "write_long": 5.0
+    },
+    "gpt-6.2-sol|batch|short": {
+      "input": 1.0,
+      "cache": 0.05,
+      "write": 1.25,
+      "output": 5.0,
+      "write_long": 2.5
+    },
+    "gpt-6.2-sol|fast|long": {
+      "input": 8.0,
+      "cache": 0.4,
+      "write": 10.0,
+      "output": 30.0,
+      "write_long": 20.0
+    },
+    "gpt-6.2-sol|fast|short": {
+      "input": 4.0,
+      "cache": 0.2,
+      "write": 5.0,
+      "output": 20.0,
+      "write_long": 10.0
+    },
+    "gpt-6.2-sol|standard|long": {
+      "input": 4.0,
+      "cache": 0.2,
+      "write": 5.0,
+      "output": 15.0,
+      "write_long": 10.0
+    },
+    "gpt-6.2-sol|standard|short": {
+      "input": 2.0,
+      "cache": 0.1,
+      "write": 2.5,
+      "output": 10.0,
+      "write_long": 5.0
+    },
+    "gpt-6.2-sol|ultrafast-list|long": {
+      "input": 24.0,
+      "cache": 1.2,
+      "write": 30.0,
+      "output": 90.0,
+      "write_long": 60.0
+    },
+    "gpt-6.2-sol|ultrafast-list|short": {
+      "input": 12.0,
+      "cache": 0.6,
+      "write": 15.0,
+      "output": 60.0,
+      "write_long": 30.0
+    },
+    "gpt-6.2-sol|ultrafast-promotion|long": {
+      "input": 12.0,
+      "cache": 0.6,
+      "write": 15.0,
+      "output": 45.0,
+      "write_long": 30.0
+    },
+    "gpt-6.2-sol|ultrafast-promotion|short": {
+      "input": 6.0,
+      "cache": 0.3,
+      "write": 7.5,
+      "output": 30.0,
+      "write_long": 15.0
+    },
     "gpt-3.5-turbo-0125|batch|short": {
       "input": 0.25,
       "cache": null,

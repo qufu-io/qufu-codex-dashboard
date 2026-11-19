@@ -2,6 +2,11 @@
 
 Notable user-facing changes. Releases use semantic versioning; published tags are not rewritten.
 
+## Unreleased
+
+- Include GPT-6.2 Sol and Astra in weekly token and API-dollar estimates.
+- Apply GPT-6.2 Ultrafast promotional and list prices by usage timestamp, including across the March 1, 2027 Pacific time cutoff.
+
 ## 1.0.9 — 2026-11-14
 
 - Default weekly quota display to API-equivalent dollars with a persistent Token/API $ switch and two decimal places.
