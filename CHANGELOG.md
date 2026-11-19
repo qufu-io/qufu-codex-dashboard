@@ -4,7 +4,7 @@ Notable user-facing changes. Releases use semantic versioning; published tags ar
 
 ## 1.1.0 — 2026-11-19
 
-- Include GPT-6.2 Sol and Astra in weekly token and API-dollar estimates.
+- Include GPT-6.2 Sol and Astra in weekly token and API-dollar estimates. Use GPT-6.2 Sol as the budget reference at the same numerical scale.
 - Apply GPT-6.2 Ultrafast promotional and list prices by usage timestamp, including across the March 1, 2027 Pacific time cutoff.
 
 See [bilingual release notes](docs/CHANGES-1.1.0.md).
