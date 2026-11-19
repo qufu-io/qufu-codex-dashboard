@@ -161,9 +161,13 @@ pub fn quota_short_usd(model: &str, tier: &str, raw: [f64; 3]) -> Option<f64> {
     }
     usd.is_finite().then_some(usd)
 }
+pub(crate) const QUOTA_REFERENCE_MODEL: &str = "gpt-6.2-sol";
+
 pub fn sol_short_equivalent(model: &str, tier: &str, raw: [f64; 3]) -> Option<[f64; 3]> {
     let book = quota_catalog();
-    let sol = book.rates.get("gpt-6.1-sol|standard|short")?;
+    let sol = book
+        .rates
+        .get(&key(QUOTA_REFERENCE_MODEL, "standard", false))?;
     let ratio = book
         .rates
         .get(&key(&normalize_model(model), &normalize_tier(tier), false))?;
@@ -584,6 +588,26 @@ pub fn start(directory: std::path::PathBuf) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn gpt62_quota_reference_preserves_all_three_price_weights() {
+        let book = quota_catalog();
+        let previous = &book.rates["gpt-6.1-sol|standard|short"];
+        let current = &book.rates[&key(QUOTA_REFERENCE_MODEL, "standard", false)];
+        assert_eq!(
+            (previous.input, previous.cache, previous.output),
+            (current.input, current.cache, current.output)
+        );
+        let raw = [100., 200., 300.];
+        assert_eq!(
+            sol_short_equivalent("gpt-6.2-sol", "standard", raw),
+            Some(raw)
+        );
+        assert_eq!(
+            sol_short_equivalent("gpt-6.2-astra", "standard", raw),
+            Some([400., 800., 1200.])
+        );
+    }
+
     #[test]
     fn ultrafast_promotion_and_list_have_separate_rates() {
         let markdown = "Ultrafast\n### Ultrafast pricing data\n\

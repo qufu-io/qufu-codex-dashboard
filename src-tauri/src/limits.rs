@@ -538,8 +538,8 @@ enum SolBasis {
 impl SolBasis {
     fn id(self) -> &'static str {
         match self {
-            Self::Strict => "sol-6.1-api-short-v1",
-            Self::Review54 => "sol-6.1-api-short-review54-scalar-v1",
+            Self::Strict => "sol-6.2-api-short-v1",
+            Self::Review54 => "sol-6.2-api-short-review54-scalar-v1",
         }
     }
     fn review_proxy(self) -> Option<&'static str> {
@@ -644,7 +644,11 @@ fn sol_fit(rows: &[Interval], observed: usize, at: i64, percent: f64, basis: Sol
             sum
         });
         if let Some(raw) = projected_raw_capacity(&model.common, &mix) {
-            if let Some(usd) = crate::pricing::quota_short_usd("gpt-6.1-sol", "standard", mix) {
+            if let Some(usd) = crate::pricing::quota_short_usd(
+                crate::pricing::QUOTA_REFERENCE_MODEL,
+                "standard",
+                mix,
+            ) {
                 let usd_capacity = raw * usd / mix.iter().sum::<f64>();
                 result["apiUsdCapacity"] = json!(usd_capacity);
                 result["apiUsdUsed"] = json!(usd_capacity * percent / 100.);
@@ -1598,7 +1602,12 @@ mod tests {
             sum
         });
         let expected_usd = audited["capacity"].as_f64().unwrap()
-            * crate::pricing::quota_short_usd("gpt-6.1-sol", "standard", mix).unwrap()
+            * crate::pricing::quota_short_usd(
+                crate::pricing::QUOTA_REFERENCE_MODEL,
+                "standard",
+                mix,
+            )
+            .unwrap()
             / mix.iter().sum::<f64>();
         assert!((audited["apiUsdCapacity"].as_f64().unwrap() - expected_usd).abs() < 1e-10);
         assert!((audited["apiUsdUsed"].as_f64().unwrap() - expected_usd * 0.09).abs() < 1e-10);
