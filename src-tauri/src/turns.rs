@@ -352,7 +352,7 @@ impl Turn {
         let mut q = pricing::Quote::combine(
             self.responses
                 .iter()
-                .map(|r| pricing::quote(&r.model, &r.tier, &r.usage, r.long)),
+                .map(|r| pricing::quote_at(&r.model, &r.tier, &r.usage, r.long, r.at)),
         );
         q.partial |= self.missing_response;
         if let Some(u) = &self.usage {

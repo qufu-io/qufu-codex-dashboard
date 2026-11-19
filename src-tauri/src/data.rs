@@ -518,17 +518,23 @@ impl Rollout {
             }
         );
 
-        let entry = self
-            .models
-            .entry(key.clone())
-            .or_insert_with(|| ModelUsage {
-                model: key,
-                usage: Usage::default(),
-                usd: Some(0.),
-                pricing_model: event_model.clone(),
-                pricing_tier: event_tier.clone(),
-                ..Default::default()
-            });
+        let pricing_tier = crate::pricing::pricing_tier_at(&event_model, &event_tier, t);
+        let bucket = if matches!(
+            pricing_tier.as_str(),
+            "ultrafast-promotion" | "ultrafast-list" | "ultrafast-undated"
+        ) {
+            format!("{key}|{pricing_tier}")
+        } else {
+            key.clone()
+        };
+        let entry = self.models.entry(bucket).or_insert_with(|| ModelUsage {
+            model: key,
+            usage: Usage::default(),
+            usd: Some(0.),
+            pricing_model: event_model.clone(),
+            pricing_tier,
+            ..Default::default()
+        });
         entry.usage.add(&d);
         if long_context || d.input > 272_000 {
             entry.long.add(&d);
@@ -624,13 +630,7 @@ impl Rollout {
         }
     }
     pub fn last_usd(&self) -> Option<f64> {
-        let usage = self.last_usage.as_ref()?;
-        crate::pricing::cost(
-            &self.last_model,
-            &self.last_tier,
-            usage,
-            usage.input > 272_000,
-        )
+        self.last_quote().usd
     }
     pub fn context(&self) -> Option<Value> {
         let capacity = self.context_capacity.filter(|v| *v > 0)?;
@@ -653,7 +653,15 @@ impl Rollout {
     pub fn last_quote(&self) -> crate::pricing::Quote {
         self.last_usage
             .as_ref()
-            .map(|u| crate::pricing::quote(&self.last_model, &self.last_tier, u, u.input > 272_000))
+            .map(|u| {
+                crate::pricing::quote_at(
+                    &self.last_model,
+                    &self.last_tier,
+                    u,
+                    u.input > 272_000,
+                    self.last_at,
+                )
+            })
             .unwrap_or_default()
     }
     pub fn tpm(&self, now: i64) -> Option<u64> {

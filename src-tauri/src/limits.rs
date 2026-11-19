@@ -174,7 +174,19 @@ fn intervals_with_threshold(
         let mut x = [0.; 3];
         let mut groups = BTreeMap::<String, [f64; 3]>::new();
         for sample in &samples[lo..hi] {
-            let group = groups.entry(sample.group.clone()).or_default();
+            let mut fields = sample.group.splitn(3, '|');
+            let model = fields.next().unwrap_or("");
+            let tier = fields.next().unwrap_or("");
+            let pricing_tier = crate::pricing::pricing_tier_at(model, tier, sample.at);
+            let key = if matches!(
+                pricing_tier.as_str(),
+                "ultrafast-promotion" | "ultrafast-list" | "ultrafast-undated"
+            ) {
+                format!("{model}|{pricing_tier}|{}", fields.next().unwrap_or(""))
+            } else {
+                sample.group.clone()
+            };
+            let group = groups.entry(key).or_default();
             for j in 0..3 {
                 x[j] += sample.x[j];
                 group[j] += sample.x[j];
@@ -406,7 +418,11 @@ fn estimate(
             model
         };
         local_usd = local_usd
-            .zip(crate::pricing::quota_short_usd(model, tier, s.x))
+            .zip(crate::pricing::quota_short_usd(
+                model,
+                &crate::pricing::pricing_tier_at(model, tier, s.at),
+                s.x,
+            ))
             .map(|(a, b)| a + b);
         for (j, n) in s.x.iter().enumerate() {
             current_mix[j] += n;
@@ -1603,6 +1619,43 @@ mod tests {
             crate::pricing::sol_short_equivalent("gpt-6-luna", "standard", [100.; 3]),
             Some([5., 10., 5.])
         );
+    }
+
+    #[test]
+    fn weekly_fit_accepts_gpt62_and_prices_mixed_ultrafast_periods() {
+        let cutoff = 1_803_888_000;
+        let scope = "account";
+        let reset = cutoff + 86400;
+        let make_point = |at, percent| Point {
+            at,
+            minutes: 10080,
+            reset,
+            percent,
+            plan: Some("pro".into()),
+            limit: "codex".into(),
+            scope: scope.into(),
+            epoch: 1,
+        };
+        let points = vec![make_point(cutoff - 45, 10.), make_point(cutoff + 40, 15.)];
+        let make_sample = |at: i64, group: &str| Sample {
+            id: at.to_string(),
+            at,
+            group: group.into(),
+            x: [1_000_000.; 3],
+        };
+        let samples = vec![
+            make_sample(cutoff - 3, "gpt-6.2-sol|standard|high"),
+            make_sample(cutoff - 2, "gpt-6.2-astra|ultrafast|high"),
+            make_sample(cutoff + 1, "gpt-6.2-astra|ultrafast|high"),
+        ];
+        let quota = json!({"at":cutoff+40,"value":{"account_key":scope,"plan_type":"pro","limit_id":"codex","secondary":{"used_percent":15.,"window_minutes":10080,"resets_at":reset}}});
+        let estimate = account_display_estimate(&samples, &points, &quota, "secondary");
+        let weekly = &estimate["solEquivalent"];
+        assert_eq!(weekly["intervals"], 1);
+        assert!((weekly["capacity"].as_f64().unwrap() - 2_220_000_000.).abs() < 1e-5);
+        let observed_usd = 12.10 * (1. + 4. * 3. + 4. * 6.);
+        assert!((weekly["apiUsdCapacity"].as_f64().unwrap() - observed_usd * 20.).abs() < 1e-8);
+        assert!((weekly["apiUsdUsed"].as_f64().unwrap() - observed_usd * 3.).abs() < 1e-8);
     }
 
     #[test]

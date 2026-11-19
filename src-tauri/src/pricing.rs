@@ -113,6 +113,26 @@ pub fn normalize_tier(tier: &str) -> String {
     }
 }
 
+const ULTRAFAST_62_LIST_START: i64 = 1_803_888_000; // 2027-03-01 00:00 PST
+
+pub(crate) fn pricing_tier_at(model: &str, tier: &str, at: i64) -> String {
+    let tier = normalize_tier(tier);
+    if tier != "ultrafast"
+        || !matches!(
+            model_base(&normalize_model(model)).as_str(),
+            "gpt-6.2-sol" | "gpt-6.2-astra"
+        )
+    {
+        return tier;
+    }
+    match at {
+        ..=0 => "ultrafast-undated",
+        ULTRAFAST_62_LIST_START.. => "ultrafast-list",
+        _ => "ultrafast-promotion",
+    }
+    .into()
+}
+
 /// Fixed bundled API short-context ratios for the derived quota projection.
 /// Context length and cache-write detail aren't available in quota samples.
 /// The billed API pricing engine remains independent of this approximation.
@@ -191,6 +211,15 @@ pub fn parse(markdown: &str) -> Result<Catalog, String> {
     let mut headers = Vec::<String>::new();
     for line in markdown.lines().map(str::trim) {
         let heading = line.trim_start_matches('#').trim().to_ascii_lowercase();
+        if let Some(section) = match heading.as_str() {
+            "ultrafast promotion pricing data" => Some("ultrafast-promotion"),
+            "ultrafast list pricing data" => Some("ultrafast-list"),
+            _ => None,
+        } {
+            tier = section.into();
+            headers.clear();
+            continue;
+        }
         if let Some(t) = ["standard", "priority", "fast", "ultrafast", "batch", "flex"]
             .iter()
             .find(|t| heading == **t || heading == format!("{t} pricing data"))
@@ -326,17 +355,10 @@ fn family(model: &str) -> Option<(String, u32)> {
     let (major, minor) = version.split_once('.').unwrap_or((version, "0"));
     Some((format!("{major}-{flavor}"), minor.parse().ok()?))
 }
-fn resolve<'a>(book: &'a Catalog, model: &str, tier: &str, long: bool) -> Option<(&'a Rate, bool)> {
-    if let Some(r) = book.rates.get(&key(model, tier, long)) {
-        return Some((r, book.retained.contains(&key(model, tier, long))));
-    }
-    let normalized = normalize_model(model);
-    if let Some(r) = book.rates.get(&key(&normalized, tier, long)) {
-        return Some((r, book.retained.contains(&key(&normalized, tier, long))));
-    }
+fn model_base(normalized: &str) -> String {
     let mut base = normalized
         .strip_suffix("-latest")
-        .unwrap_or(&normalized)
+        .unwrap_or(normalized)
         .to_owned();
     let parts: Vec<_> = base.rsplitn(4, '-').collect();
     if parts.len() == 4
@@ -349,10 +371,27 @@ fn resolve<'a>(book: &'a Catalog, model: &str, tier: &str, long: bool) -> Option
     {
         base = parts[3].into();
     }
+    base
+}
+fn resolve<'a>(book: &'a Catalog, model: &str, tier: &str, long: bool) -> Option<(&'a Rate, bool)> {
+    if let Some(r) = book.rates.get(&key(model, tier, long)) {
+        return Some((r, book.retained.contains(&key(model, tier, long))));
+    }
+    let normalized = normalize_model(model);
+    if let Some(r) = book.rates.get(&key(&normalized, tier, long)) {
+        return Some((r, book.retained.contains(&key(&normalized, tier, long))));
+    }
+    let base = model_base(&normalized);
     if base != normalized {
         if let Some(r) = book.rates.get(&key(&base, tier, long)) {
             return Some((r, true));
         }
+    }
+    if matches!(
+        tier,
+        "ultrafast-promotion" | "ultrafast-list" | "ultrafast-undated"
+    ) {
+        return None;
     }
     let (group, minor) = family(&base)?;
     let candidates: Vec<_> = book
@@ -434,15 +473,20 @@ pub fn quote_in(book: &Catalog, model: &str, tier: &str, usage: &Usage, long: bo
     q
 }
 pub fn quote(model: &str, tier: &str, usage: &Usage, long: bool) -> Quote {
-    let q = quote_in(&state().read().unwrap().catalog, model, tier, usage, long);
+    quote_at(model, tier, usage, long, chrono::Utc::now().timestamp())
+}
+pub fn quote_at(model: &str, tier: &str, usage: &Usage, long: bool, at: i64) -> Quote {
+    let tier = pricing_tier_at(model, tier, at);
+    let q = quote_in(&state().read().unwrap().catalog, model, &tier, usage, long);
     if usage.total > 0 {
         state().write().unwrap().coverage.insert(
-            key(&normalize_model(model), &normalize_tier(tier), long),
+            key(&normalize_model(model), &tier, long),
             q.usd.is_some() && !q.partial,
         );
     }
     q
 }
+#[cfg(test)]
 pub fn cost(model: &str, tier: &str, usage: &Usage, long: bool) -> Option<f64> {
     quote(model, tier, usage, long).usd
 }
@@ -540,6 +584,38 @@ pub fn start(directory: std::path::PathBuf) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ultrafast_promotion_and_list_have_separate_rates() {
+        let markdown = "Ultrafast\n### Ultrafast pricing data\n\
+            | Model | Input | Output | Cached input |\n\
+            | gpt-6.1-sol | $12 | $60 | $0.60 |\n\
+            ### Ultrafast promotion pricing data\n\
+            | Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |\n\
+            | gpt-6.2-sol | $6 | $30 | $0.30 | $7.50 | $15 | $12 | $45 | $0.60 | $15 | $30 |\n\
+            ### Ultrafast list pricing data\n\
+            | Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |\n\
+            | gpt-6.2-sol | $12 | $60 | $0.60 | $15 | $30 | $24 | $90 | $1.20 | $30 | $60 |";
+        let parsed = parse(markdown).unwrap();
+        let cutoff = chrono::DateTime::parse_from_rfc3339("2027-03-01T00:00:00-08:00")
+            .unwrap()
+            .timestamp();
+        let model = "gpt-6.2-sol";
+        let usage = Usage {
+            input: 1_000_000,
+            total: 1_000_000,
+            ..Default::default()
+        };
+        for book in [&parsed, quota_catalog()] {
+            for (at, short, long) in [(cutoff - 1, 6., 12.), (cutoff, 12., 24.)] {
+                let tier = pricing_tier_at(model, "ultrafast", at);
+                assert_eq!(quote_in(book, model, &tier, &usage, false).usd, Some(short));
+                assert_eq!(quote_in(book, model, &tier, &usage, true).usd, Some(long));
+            }
+            let tier = pricing_tier_at(model, "ultrafast", 0);
+            assert_eq!(quote_in(book, model, &tier, &usage, false).usd, None);
+        }
+        assert_eq!(parsed.rates["gpt-6.1-sol|ultrafast|short"].input, 12.);
+    }
     #[test]
     fn parses_separate_tiers_and_long_context() {
         let text="Standard\n| Model | Input | Cached | Write | Output | Long input | Long cached | Long write | Long output |\n| gpt-a | $2 | $0.1 | $2.5 | $10 | $4 | $0.2 | $5 | $15 |\n| gpt-b | $1 | $0.1 | - | $5 | - | - | - | - |\n| gpt-c | $1 | $0.1 | - | $5 | - | - | - | - |\nFast\n| gpt-a | $4 | $0.2 | $5 | $20 | $8 | $0.4 | $10 | $30 |";
